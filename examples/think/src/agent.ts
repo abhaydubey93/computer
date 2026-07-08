@@ -205,6 +205,9 @@ export class TriageAgent extends withWorkspaceContainer(TriageBase) {
         }),
         this.#containerBackend,
       ],
+      // Keep generated output on the backend that created it while source
+      // files still pull into the durable workspace.
+      ignore: ["node_modules", "dist", "build", ".cache"],
       // Mount the shared skills bucket at /workspace/.agents. The
       // R2 keys live under `.agents/` (e.g.
       // `.agents/skills/triage/SKILL.md`); the prefix is stripped

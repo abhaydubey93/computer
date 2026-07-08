@@ -309,7 +309,7 @@ type WireError = {
 
 | Code | Meaning |
 | --- | --- |
-| `ENOENT` | Path does not exist on the receiver (covers ignored paths, which are invisible to `Workspace.fs`), or `getExec` / `disposeExec` referenced an unknown id. |
+| `ENOENT` | Path does not exist on the receiver (including backend-only paths filtered from a pull), or `getExec` / `disposeExec` referenced an unknown id. |
 | `EUNKNOWN_HASH` | **(reserved, planned)** `fetchObjects` or `pushObjects` referenced a hash the receiver has no record of. Reserved in `WireErrorCode` but not raised today; `pushObjects` should throw it via `createWorkspaceError`. |
 | `EEXEC_BUSY` | `exec` was called with an `id` that's already in use by a live run. |
 | `ELOG_TRUNCATED` | `getExec` resume point is older than the retained log. |

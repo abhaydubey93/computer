@@ -58,6 +58,12 @@ export interface WorkspaceOptions {
   // factories via MountContext.sessionId. Optional; defaults to "".
   sessionId?: string;
 
+  // Path segments omitted from changes pulled from every backend.
+  // Omit to use the remote default (`node_modules`). A supplied list
+  // replaces that default; pass [] to pull every path. Pushes are
+  // unaffected.
+  ignore?: string[];
+
   // Mounts to register against the workspace. Keys are absolute
   // mount roots (no trailing slash, no nesting). Values are either
   // bare Mount objects or factories that take a MountContext and
@@ -112,6 +118,7 @@ export class Workspace {
   readonly #observer: WorkspaceObserver;
   readonly #now: () => number;
   readonly #sessionId: string;
+  readonly #ignore: string[] | undefined;
   readonly #defaultGitIdentity: GitIdentity | undefined;
   readonly #assets: AssetsClient | undefined;
   readonly #artifacts: ArtifactClient;
@@ -143,6 +150,7 @@ export class Workspace {
   constructor(options: WorkspaceOptions) {
     this.#now = options.now ?? Date.now;
     this.#sessionId = options.sessionId ?? "";
+    this.#ignore = options.ignore?.slice();
     this.#defaultGitIdentity = options.defaultGitIdentity;
     this.#artifacts = options.artifacts
       ? createArtifact(
@@ -419,7 +427,10 @@ export class Workspace {
           const handle = await this.#handleFor(resolvedId);
           if (handle.sync === "none") return { applied: 0, skipped: [] };
           return this.#runWithInvalidation(resolvedId, handle, () =>
-            pullOnce(this.#db, handle.rpc.sync, resolvedId),
+            pullOnce(this.#db, handle.rpc.sync, {
+              backend: resolvedId,
+              ignore: this.#ignore,
+            }),
           );
         },
         (span, outcome) => {

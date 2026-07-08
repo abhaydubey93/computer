@@ -239,6 +239,28 @@ A workspace with two backends that both write into
 [`docs/05_shell_interface.md`](../../docs/05_shell_interface.md)
 for the caveat.
 
+## Keep generated paths on execution backends
+
+Use `ignore` to omit generated directories when pulling changes into
+`Workspace.fs`:
+
+```ts
+const workspace = new Workspace({
+  storage: ctx.storage,
+  backends: [containerBackend],
+  ignore: ["node_modules", "dist", "build", ".cache"],
+});
+```
+
+Patterns match whole path segments and apply to every backend. Omit `ignore` to
+use the remote default (`["node_modules"]`). A supplied list replaces that
+default; pass `[]` to pull every path.
+
+Filtered files remain available to commands on the backend where they were
+created. Pushes are unaffected: matching files written through `Workspace.fs`
+still sync to backends. Choose the list before the first pull; changing it later
+does not backfill previously filtered changes or remove local files.
+
 ## Worker-side consumption
 
 ```ts

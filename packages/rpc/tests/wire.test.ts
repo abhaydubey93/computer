@@ -232,10 +232,12 @@ describe("SyncRPC pull convergence", () => {
     harness = undefined;
   });
 
-  it("client pulls a file written via writeFileSync on the server", async () => {
+  it("client applies pull ignore paths across the wire", async () => {
     harness = await startHarness();
     const provider = new SQLiteWorkspaceProvider(harness.db, { now: () => 1500 });
     provider.writeFileSync("/whole.txt", "whole-file write");
+    provider.mkdirSync("/dist");
+    provider.writeFileSync("/dist/generated.js", "generated");
 
     // Receiver DB — the host's local store in the production setup.
     const recvStorage = new SQLiteTestStorage();
@@ -245,10 +247,11 @@ describe("SyncRPC pull convergence", () => {
     const client = createSyncClient({ url: harness.url });
     try {
       const { pullOnce } = await import("../src/sync-driver.js");
-      const applied = await pullOnce(recvDb, client);
+      const applied = await pullOnce(recvDb, client, { ignore: ["dist"] });
       expect(applied.applied).toBeGreaterThan(0);
       const recvProvider = new SQLiteWorkspaceProvider(recvDb, { now: () => 2500 });
       expect(recvProvider.readFileSync("/whole.txt", "utf8")).toBe("whole-file write");
+      expect(() => recvProvider.statSync("/dist/generated.js")).toThrow();
     } finally {
       await client.close();
       recvStorage.close();

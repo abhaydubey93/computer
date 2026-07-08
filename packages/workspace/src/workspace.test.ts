@@ -1,4 +1,6 @@
+import { Database, initializeSchema, SQLiteWorkspaceProvider } from "@cloudflare/dofs";
 import { SQLiteTestStorage } from "@cloudflare/dofs/testing";
+import { createSyncServer } from "@cloudflare/workspace-rpc/server";
 import { describe, expect, it, vi } from "vitest";
 
 import type { BackendHandle, WorkspaceBackend } from "./backend.js";
@@ -7,6 +9,21 @@ import { Workspace } from "./workspace.js";
 
 function makeStorage(): SQLiteTestStorage {
   return new SQLiteTestStorage();
+}
+
+function makeRemoteFiles(files: Record<string, string>): {
+  rpc: import("@cloudflare/workspace-rpc").SyncRPC;
+  close(): void;
+} {
+  const storage = makeStorage();
+  const db = new Database(storage);
+  initializeSchema(db, () => 1);
+  const provider = new SQLiteWorkspaceProvider(db, { now: () => 1 });
+  for (const [path, content] of Object.entries(files)) {
+    provider.mkdirSync(path.slice(0, path.lastIndexOf("/")), { recursive: true });
+    provider.writeFileSync(path, content);
+  }
+  return { rpc: createSyncServer(db), close: () => storage.close() };
 }
 
 // In-process fakes. We never spawn anything from the package
@@ -649,6 +666,56 @@ describe("Workspace.fs against the local store", () => {
       await new Response(await ws.fs.readFile("/empty.txt")).arrayBuffer(),
     );
     expect(bytes.byteLength).toBe(0);
+  });
+});
+
+describe("Workspace.pull ignore", () => {
+  it("replaces the remote default with the configured path segments", async () => {
+    const remote = makeRemoteFiles({
+      "/workspace/src/index.ts": "source",
+      "/workspace/dist/index.js": "build",
+      "/workspace/node_modules/pkg/index.js": "dependency",
+    });
+    try {
+      const ws = new Workspace({
+        storage: makeStorage(),
+        backends: [makeBackend("container", remote.rpc)],
+        ignore: ["dist"],
+      });
+
+      await ws.pull();
+
+      expect(await ws.fs.readFile("/workspace/src/index.ts", "utf8")).toBe("source");
+      expect(await ws.fs.readFile("/workspace/node_modules/pkg/index.js", "utf8")).toBe(
+        "dependency",
+      );
+      await expect(ws.fs.stat("/workspace/dist/index.js")).rejects.toMatchObject({
+        code: "ENOENT",
+      });
+    } finally {
+      remote.close();
+    }
+  });
+
+  it("pulls node_modules when the configured list is empty", async () => {
+    const remote = makeRemoteFiles({
+      "/workspace/node_modules/pkg/index.js": "dependency",
+    });
+    try {
+      const ws = new Workspace({
+        storage: makeStorage(),
+        backends: [makeBackend("container", remote.rpc)],
+        ignore: [],
+      });
+
+      await ws.pull();
+
+      expect(await ws.fs.readFile("/workspace/node_modules/pkg/index.js", "utf8")).toBe(
+        "dependency",
+      );
+    } finally {
+      remote.close();
+    }
   });
 });
 

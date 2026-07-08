@@ -65,15 +65,21 @@ const PULL_BATCH_SIZE = 256;
 // (rev, path), so a retry can resume inside a single large rev. The
 // cursor is read and written per backend so concurrent backends keep
 // independent resume points.
+export interface PullOptions {
+  backend?: string;
+  // Path segments the remote should omit from this pull.
+  ignore?: string[];
+}
+
 export async function pullOnce(
   db: Database,
   remote: SyncRPC,
-  backend?: string,
+  options: PullOptions = {},
 ): Promise<ApplyResult> {
   // Delegate to the inner implementation with retried=false. See
   // pullOnceImpl for the fetchChanges round trip, invariant check,
   // reset-and-retry path, and batched apply loop.
-  return pullOnceImpl(db, remote, backend, false);
+  return pullOnceImpl(db, remote, options, false);
 }
 
 // Inner pullOnce that knows whether it is already a retry. The
@@ -84,9 +90,10 @@ export async function pullOnce(
 async function pullOnceImpl(
   db: Database,
   remote: SyncRPC,
-  backend: string | undefined,
+  options: PullOptions,
   retried: boolean,
 ): Promise<ApplyResult> {
+  const { backend, ignore } = options;
   const after = readFetchCursor(db, backend);
   const localPushRev = readWatermark(db, "pushRev", backend);
   // fetchChanges hands back the remote's currentCursor (cursor we
@@ -103,7 +110,7 @@ async function pullOnceImpl(
   // invariant trip, and any throw inside the batch loop. Disposing the
   // envelope tears down the contained stream stub, releasing the
   // remote iterator.
-  const fetchResult = await remote.fetchChanges({ after });
+  const fetchResult = await remote.fetchChanges({ after, ignore });
   try {
     const { currentCursor, appliedPushCursor } = fetchResult;
     // Cross-side watermark divergence. Two shapes are recoverable:
@@ -163,7 +170,7 @@ async function pullOnceImpl(
       if (fetchDiverged) {
         writeFetchCursor(db, { rev: 0, path: null }, backend);
       }
-      return pullOnceImpl(db, remote, backend, true);
+      return pullOnceImpl(db, remote, options, true);
     }
     // After the retry path above, this assertion guards a
     // divergence that survived a reset. Tear down rather than loop.

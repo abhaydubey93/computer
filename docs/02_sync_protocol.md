@@ -407,14 +407,12 @@ first-class conflict primitives.
 
 ## Ignore lists
 
-
-The `ignore` option hides path segments from the pull. Excluded
-paths are still written and read inside the container — the bytes just
-never cross the wire back to the DO. This is essential for any large
-directory of derived files: `node_modules`, `.next`, `target`,
-`__pycache__`, `dist`. Without an ignore, a single `npm install` would
-push tens of thousands of small files through the sync wire on the
-next pull.
+`WorkspaceOptions.ignore` omits matching path segments from each backend
+pull. Filtered paths remain available on the backend that created them, but
+their bytes do not cross the wire into the Durable Object. This is essential
+for any large directory of derived files: `node_modules`, `.next`, `target`,
+`__pycache__`, `dist`. Without an ignore, a single `npm install` would send
+tens of thousands of small files through the sync wire on the next pull.
 
 The default is `["node_modules"]`, applied server-side when `ignore` is
 omitted. A caller-supplied list **replaces** the default — it does not
@@ -423,12 +421,11 @@ list (including `"node_modules"` if you still want it) to customise.
 
 ### Ignored entries
 
-Ignored paths are **invisible to the `Workspace.fs` API**. They do not
-appear in `readdir`, `stat` returns `ENOENT`, and `readFile` returns
-`ENOENT`. The bytes still live inside the container, so anything that
-*uses* the ignored files — `exec("node ...")`, build tools, anything
-running container-side — keeps working. The exclusion only affects what
-crosses the wire **and** what the DO-side API surfaces.
+Paths filtered from a pull do not appear in `Workspace.fs`: they are absent
+from `readdir`, and `stat` and `readFile` return `ENOENT`. Commands on the
+backend that created the paths can still use them. The setting only filters
+backend-to-host pulls; matching files written through `Workspace.fs` remain
+visible and can still be pushed to backends.
 
 This is a deliberately narrow surface for the initial release. Whether
 ignored entries should be representable to the DO at all (as stubs, as
@@ -442,7 +439,7 @@ case depends on a particular resolution.
 
 ### Representing ignored entries to the DO
 
-Today ignored paths are entirely invisible to `Workspace.fs`. That is
+Today backend-only ignored paths are invisible to `Workspace.fs`. That is
 the simplest contract but it loses one piece of information: tools that
 want to enumerate "everything the agent's exec can see" can't get it
 from the DO. Two options worth weighing later:
@@ -454,8 +451,8 @@ from the DO. Two options worth weighing later:
   returns container-only entries, `workspace.fs.readdir` stays clean.
   Cleaner separation, larger API surface.
 
-Either way, the bytes never cross the wire; the question is purely how
-much the DO admits exists.
+Either way, backend-only bytes stay out of the DO; the question is purely
+how much the DO admits exists.
 
 ### Bloom/cuckoo filter over `vfs_blobs.hash`
 

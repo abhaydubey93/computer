@@ -74,8 +74,8 @@ The `vfs_nodes_by_rev` index supports `coalesceChanges`'s cursor scan
 over live inodes, which the sync protocol calls once per pull to
 enumerate everything modified after the last fetch cursor.
 
-There is no `ignored` column: ignored paths are entirely invisible to
-the DO-side filesystem API (see
+There is no `ignored` column: backend-only paths filtered from a pull are
+not represented in the DO-side filesystem API (see
 [02. Sync Protocol → Ignored entries](./02_sync_protocol.md#ignored-entries)).
 
 ### `vfs_dirents` — name → inode mapping
