@@ -1,0 +1,345 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>codemode example — system architecture</title>
+    <style>
+      :root {
+        --bg: #0f1115;
+        --panel: #171a21;
+        --panel-2: #1e222b;
+        --ink: #e6e9ef;
+        --muted: #9aa4b2;
+        --line: #2b313c;
+        --shell: #4aa3ff;
+        --codemode: #7c5cff;
+        --container: #ff8a3d;
+        --agent: #33c48d;
+        --fs: #ffd166;
+        --code: #cbd5e1;
+      }
+      * { box-sizing: border-box; }
+      html { scroll-behavior: smooth; }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      }
+      .wrap { max-width: 980px; margin: 0 auto; padding: 48px 24px 96px; }
+      header h1 { font-size: 30px; margin: 0 0 6px; letter-spacing: -0.02em; }
+      header p.sub { color: var(--muted); margin: 0 0 8px; }
+      .preview {
+        display: inline-block; margin-top: 14px; padding: 6px 12px;
+        border: 1px solid var(--line); border-radius: 999px;
+        color: var(--muted); font-size: 13px;
+      }
+      h2 {
+        margin: 48px 0 12px; font-size: 21px; letter-spacing: -0.01em;
+        padding-bottom: 8px; border-bottom: 1px solid var(--line);
+      }
+      h3 { margin: 28px 0 8px; font-size: 16px; }
+      p { color: var(--ink); }
+      .muted { color: var(--muted); }
+      code {
+        font-family: "SF Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 0.9em; background: var(--panel-2); padding: 1px 6px;
+        border-radius: 5px; color: var(--code);
+      }
+      pre {
+        background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+        padding: 16px; overflow-x: auto; color: var(--code);
+        font-family: "SF Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 13px; line-height: 1.5;
+      }
+      .card {
+        background: var(--panel); border: 1px solid var(--line);
+        border-radius: 12px; padding: 20px 22px; margin: 16px 0;
+      }
+      .legend { display: flex; flex-wrap: wrap; gap: 14px; margin: 8px 0 4px; }
+      .legend span { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; color: var(--muted); }
+      .dot { width: 11px; height: 11px; border-radius: 3px; display: inline-block; }
+      figure { margin: 8px 0 0; }
+      figure svg { width: 100%; height: auto; display: block; }
+      figcaption { color: var(--muted); font-size: 13px; margin-top: 10px; text-align: center; }
+      table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 14.5px; }
+      th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+      th { color: var(--muted); font-weight: 600; font-size: 12.5px; text-transform: uppercase; letter-spacing: 0.04em; }
+      td code { white-space: nowrap; }
+      .pill { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+      .pill.shell { background: rgba(74,163,255,0.15); color: var(--shell); }
+      .pill.codemode { background: rgba(124,92,255,0.16); color: #b3a2ff; }
+      .pill.container { background: rgba(255,138,61,0.15); color: var(--container); }
+      .pill.agent { background: rgba(51,196,141,0.15); color: var(--agent); }
+      .pill.fs { background: rgba(255,209,102,0.14); color: var(--fs); }
+      ul { padding-left: 20px; }
+      li { margin: 6px 0; }
+      .two { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+      @media (max-width: 720px) { .two { grid-template-columns: 1fr; } }
+      .note { border-left: 3px solid var(--agent); padding: 4px 0 4px 14px; color: var(--muted); }
+      a { color: var(--shell); }
+      .flow-steps { counter-reset: step; list-style: none; padding-left: 0; }
+      .flow-steps li { counter-increment: step; padding-left: 34px; position: relative; margin: 10px 0; }
+      .flow-steps li::before {
+        content: counter(step); position: absolute; left: 0; top: 1px;
+        width: 22px; height: 22px; border-radius: 50%; background: var(--panel-2);
+        border: 1px solid var(--line); color: var(--ink); font-size: 12px;
+        display: grid; place-items: center;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header>
+        <h1>codemode example — system architecture</h1>
+        <p class="sub">One Workspace, three backends, and an optional agent layer on top.</p>
+        <span class="preview">PREVIEW ONLY — APIs are unstable and the design is subject to change.</span>
+      </header>
+
+      <h2>The core idea</h2>
+      <div class="card">
+        <p>
+          A <strong>Workspace</strong> is a filesystem plus a set of interchangeable
+          <strong>backends</strong>. Each backend is a different way to run a command against the
+          <em>same</em> files. This example registers three of them and lets an LLM choose which one
+          runs each command — while keeping the workspace itself completely unaware that a model
+          exists.
+        </p>
+        <p class="muted" style="margin-bottom:0">
+          Two principles drive the design: <strong>one Durable Object owns the filesystem</strong>,
+          and <strong>agency is an opt-in layer</strong>, never baked into the workspace.
+        </p>
+      </div>
+
+      <h2>System diagram</h2>
+      <div class="legend">
+        <span><i class="dot" style="background:var(--agent)"></i> agent layer (opt-in)</span>
+        <span><i class="dot" style="background:var(--fs)"></i> the one filesystem (SQLite)</span>
+        <span><i class="dot" style="background:var(--shell)"></i> shell backend</span>
+        <span><i class="dot" style="background:var(--codemode)"></i> codemode backend</span>
+        <span><i class="dot" style="background:var(--container)"></i> container backend</span>
+      </div>
+      <figure>
+        <svg viewBox="0 0 960 620" role="img" aria-label="Architecture diagram">
+          <defs>
+            <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#7f8a9a" />
+            </marker>
+            <style>
+              .box { fill: #171a21; stroke: #2b313c; stroke-width: 1.5; rx: 12; }
+              .lbl { fill: #e6e9ef; font: 600 14px -apple-system, "Segoe UI", sans-serif; }
+              .sub { fill: #9aa4b2; font: 12px "SF Mono", Menlo, monospace; }
+              .edge { stroke: #7f8a9a; stroke-width: 1.6; fill: none; marker-end: url(#arrow); }
+              .edge.dashed { stroke-dasharray: 5 4; }
+              .back { stroke: #4a5568; stroke-width: 1.4; fill: none; stroke-dasharray: 3 4; marker-end: url(#arrow); }
+            </style>
+          </defs>
+
+          <!-- client -->
+          <rect class="box" x="40" y="24" width="140" height="48" rx="12" />
+          <text class="lbl" x="110" y="53" text-anchor="middle">client (curl)</text>
+
+          <!-- worker -->
+          <rect class="box" x="40" y="120" width="300" height="120" rx="12" />
+          <text class="lbl" x="56" y="146">Worker (fetch handler)</text>
+          <rect x="56" y="160" width="120" height="30" rx="7" fill="#1e222b" stroke="#2b313c"/>
+          <text class="sub" x="116" y="180" text-anchor="middle">/file · /exec</text>
+          <rect x="188" y="160" width="120" height="30" rx="7" fill="rgba(51,196,141,0.12)" stroke="#2f6f57"/>
+          <text class="sub" x="248" y="180" text-anchor="middle" fill="#5fd6a4">/agent</text>
+          <text class="sub" x="56" y="216">deterministic vs. model-driven</text>
+
+          <!-- agent loop -->
+          <rect class="box" x="380" y="120" width="260" height="120" rx="12" stroke="#2f6f57" />
+          <text class="lbl" x="396" y="146" fill="#5fd6a4">Agent loop (in Worker)</text>
+          <text class="sub" x="396" y="170">Workers AI · Kimi k2.6</text>
+          <text class="sub" x="396" y="190">exec tool → backend enum</text>
+          <text class="sub" x="396" y="210">runs over the workspace stub</text>
+
+          <!-- DO -->
+          <rect class="box" x="40" y="300" width="600" height="150" rx="12" />
+          <text class="lbl" x="60" y="328">CodemodeExample — Durable Object</text>
+          <rect x="60" y="344" width="250" height="86" rx="9" fill="rgba(255,209,102,0.10)" stroke="#6b5d2f"/>
+          <text class="lbl" x="72" y="368" fill="#ffd166">Workspace</text>
+          <text class="sub" x="72" y="388">filesystem = ctx.storage</text>
+          <text class="sub" x="72" y="406">(SQLite) — the one store</text>
+          <text class="sub" x="72" y="424">registers 3 backends (lazy)</text>
+
+          <text class="sub" x="330" y="366">backends dial on first exec:</text>
+          <text class="sub" x="330" y="388">• shell → WorkerBackend</text>
+          <text class="sub" x="330" y="408">• codemode → CodemodeBackend</text>
+          <text class="sub" x="330" y="428">• container → ContainerBackend</text>
+
+          <!-- backends execution environments -->
+          <rect class="box" x="700" y="290" width="220" height="60" rx="12" stroke="#2f5b8c"/>
+          <text class="lbl" x="712" y="315" fill="#7bb8ff">Dynamic Worker</text>
+          <text class="sub" x="712" y="335">just-bash (shell)</text>
+
+          <rect class="box" x="700" y="368" width="220" height="60" rx="12" stroke="#5a4aa0"/>
+          <text class="lbl" x="712" y="393" fill="#b3a2ff">Dynamic Worker</text>
+          <text class="sub" x="712" y="413">JS sandbox · state.* (codemode)</text>
+
+          <rect class="box" x="700" y="446" width="220" height="60" rx="12" stroke="#a05a2f"/>
+          <text class="lbl" x="712" y="471" fill="#ffb07d">Cloudflare Container</text>
+          <text class="sub" x="712" y="491">wsd · full Linux (container)</text>
+
+          <!-- edges -->
+          <path class="edge" d="M110,72 L110,120" />
+          <path class="edge" d="M300,180 L380,180" />
+          <text class="sub" x="312" y="172">prompt</text>
+          <path class="edge" d="M180,240 C180,270 190,280 210,300" />
+          <text class="sub" x="120" y="272">DO stub</text>
+          <path class="edge dashed" d="M510,240 C510,268 470,280 430,300" />
+          <text class="sub" x="500" y="266" fill="#5fd6a4">stub</text>
+
+          <path class="edge" d="M640,330 L700,320" />
+          <path class="edge" d="M640,375 L700,398" />
+          <path class="edge" d="M640,420 L700,470" />
+
+          <!-- back edges: execution envs reach the fs -->
+          <path class="back" d="M700,320 C660,300 360,300 250,344" />
+          <path class="back" d="M700,398 C540,470 340,470 250,430" />
+          <path class="back" d="M700,486 C560,540 320,520 250,432" />
+          <text class="sub" x="470" y="560" text-anchor="middle" fill="#6b7688">every file operation routes back to the one SQLite store</text>
+        </svg>
+        <figcaption>
+          Solid arrows are calls; dashed arrows are the workspace stub; dotted back-arrows show each
+          execution environment reaching the one filesystem in the Durable Object.
+        </figcaption>
+      </figure>
+
+      <h2>Layers</h2>
+      <div class="two">
+        <div class="card">
+          <h3><span class="pill fs">layer 1</span> The workspace (no model)</h3>
+          <p class="muted">
+            The <code>CodemodeExample</code> Durable Object constructs a <code>Workspace</code> over
+            its own <code>ctx.storage</code> and registers three backends. It exposes deterministic
+            routes — <code>PUT/GET /file</code> and <code>POST /exec</code> — and a
+            <code>getWorkspace()</code> stub. Nothing here mentions an LLM. A workspace used this way
+            is never agentic.
+          </p>
+        </div>
+        <div class="card">
+          <h3><span class="pill agent">layer 2</span> The agent (opt-in)</h3>
+          <p class="muted">
+            <code>POST /agent</code> runs a model loop <em>in the Worker</em>, reaching the workspace
+            through its stub. It builds an <code>exec</code> tool whose <code>backend</code> parameter
+            is an enum; the model picks per call. The workspace has zero dependency on this layer.
+            For long runs, the loop would move to its own Durable Object holding a stub.
+          </p>
+        </div>
+      </div>
+
+      <h2>The three backends</h2>
+      <p class="muted">
+        A backend adapter is registered inside the Durable Object, but the place a command actually
+        <em>runs</em> is separate. All three reach back to the one filesystem.
+      </p>
+      <table>
+        <thead>
+          <tr><th>Backend</th><th>Command is…</th><th>Runs in</th><th>Reaches the fs via</th><th>Boot cost</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="pill shell">shell</span></td>
+            <td>a shell line</td>
+            <td>Dynamic Worker (just-bash)</td>
+            <td><code>WorkspaceServiceProxy</code> loopback → DO</td>
+            <td>isolate cold start</td>
+          </tr>
+          <tr>
+            <td><span class="pill codemode">codemode</span></td>
+            <td>JavaScript</td>
+            <td>Dynamic Worker (JS sandbox)</td>
+            <td><code>state.*</code> RPC dispatchers → DO</td>
+            <td>isolate cold start</td>
+          </tr>
+          <tr>
+            <td><span class="pill container">container</span></td>
+            <td>a shell line</td>
+            <td>Cloudflare Container (wsd)</td>
+            <td>filesystem sync over capnweb → DO</td>
+            <td>container boot (first use only)</td>
+          </tr>
+        </tbody>
+      </table>
+      <p class="note">
+        Backends connect lazily: a backend is dialed on its first <code>exec</code> and the handle is
+        cached. Registering the container costs nothing until a command routes to it — and never if
+        the model never picks it.
+      </p>
+
+      <h2>How codemode reaches the filesystem</h2>
+      <div class="card">
+        <p>
+          The codemode backend runs an LLM-authored snippet in an isolated Dynamic Worker with
+          <code>globalOutbound: null</code>, so it has no path to the public internet. Its only door
+          to the outside is the <code>state.*</code> namespace the backend injects:
+        </p>
+        <pre>await state.mkdir("/workspace", { recursive: true });
+await state.writeFile("/workspace/hello.txt", "hello world");
+return await state.readFile("/workspace/hello.txt");   // → stdout</pre>
+        <p class="muted" style="margin-bottom:0">
+          Each <code>state.*</code> call dispatches over Workers RPC to functions defined in the
+          Durable Object, which forward straight to the live <code>WorkspaceFilesystem</code>. The
+          snippet's return value and <code>console.log</code> output become stdout; a thrown error
+          becomes stderr with exit code 1.
+        </p>
+        <p class="muted" style="margin-bottom:0">
+          The namespace mirrors the filesystem surface the shell backend reaches &mdash; reads
+          (<code>readFile</code>, <code>readFileBytes</code>, <code>stat</code>, <code>lstat</code>,
+          <code>exists</code>, <code>readlink</code>, <code>readdir</code>, <code>find</code>,
+          <code>ls</code>, <code>grep</code>) and mutations (<code>writeFile</code>,
+          <code>mkdir</code>, <code>rm</code>, <code>chmod</code>, <code>symlink</code>). The only
+          operation left out is the streaming <code>readFile</code> variant, since a
+          <code>ReadableStream</code> cannot cross the sandbox boundary; <code>readFileBytes</code>
+          returns a <code>Uint8Array</code> instead.
+        </p>
+      </div>
+
+      <h2>Request flows</h2>
+      <div class="two">
+        <div class="card">
+          <h3>Deterministic — <code>POST /exec</code></h3>
+          <ol class="flow-steps">
+            <li>Client posts <code>{ command, backend }</code>.</li>
+            <li>Worker calls <code>stub.getWorkspace()</code>, then <code>ws.shell.exec(command, { backend })</code>.</li>
+            <li>The Workspace routes to the named backend (or the default, <code>shell</code>).</li>
+            <li>The backend runs the command; file ops land in the DO's store.</li>
+            <li>Worker returns <code>{ exitCode, stdout, stderr }</code>.</li>
+          </ol>
+        </div>
+        <div class="card">
+          <h3>Agentic — <code>POST /agent</code></h3>
+          <ol class="flow-steps">
+            <li>Client posts <code>{ prompt }</code>.</li>
+            <li>Worker builds the model + <code>exec</code> tool over the workspace stub.</li>
+            <li>The model emits an <code>exec</code> tool call, choosing a <code>backend</code>.</li>
+            <li>The tool runs it; the model reads the result and continues.</li>
+            <li>On stop, Worker returns the transcript with <code>toolCalls[].backend</code>.</li>
+          </ol>
+        </div>
+      </div>
+
+      <h2>Key components</h2>
+      <table>
+        <thead><tr><th>File</th><th>Role</th></tr></thead>
+        <tbody>
+          <tr><td><code>src/index.ts</code></td><td>Worker routes + <code>CodemodeExample</code> DO that owns the Workspace and registers all three backends.</td></tr>
+          <tr><td><code>src/agent.ts</code></td><td>The opt-in model loop; builds the exec tool over the stub and runs one turn.</td></tr>
+          <tr><td><code>src/tools/exec.ts</code></td><td>The exec tool: a <code>backend</code> enum plus per-backend descriptions the model reads.</td></tr>
+          <tr><td><code>backends/codemode/codemode-backend.ts</code></td><td>The backend: builds the ShellRPC, runs each snippet in a fresh executor.</td></tr>
+          <tr><td><code>backends/codemode/state-provider.ts</code></td><td>The <code>state.*</code> namespace over the live <code>WorkspaceFilesystem</code>.</td></tr>
+          <tr><td><code>backends/codemode/exec-events.ts</code></td><td>Pure mapping from a run's result/logs/error to the stdout/stderr/exit event stream.</td></tr>
+        </tbody>
+      </table>
+
+      <p class="muted" style="margin-top:40px; font-size:14px">
+        See <code>README.md</code> for run and test instructions, and
+        <code>packages/workspace/src/backends/codemode/DESIGN-NOTES.md</code> for the design
+        decisions behind this example.
+      </p>
+    </div>
+  </body>
+</html>

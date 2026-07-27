@@ -1,0 +1,94 @@
+#!/usr/bin/env bash
+# Smoke test against a running `wrangler dev` of this example. It
+# exercises the one filesystem through every way this example has of
+# reaching it, and proves the three backends share that single tree:
+#
+#   1. write a file over the HTTP file surface (DO -> SQLite VFS);
+#   2. read it back with the shell backend (just-bash `cat`);
+#   3. have the codemode backend author a second file in JavaScript
+#      through its `state.*` namespace, and read the first one;
+#   4. read the codemode-written file back over the HTTP file
+#      surface, closing the loop.
+#
+# Steps 1 through 4 need no model and no container, so they run by
+# default. Two further backends are opt-in because they cost more to
+# stand up:
+#
+#   CONTAINERS=1  also read the tree from inside the Cloudflare
+#                 Container (boots wsd on first use; requires
+#                 `wrangler dev --enable-containers`).
+#   AGENT=1       also run one agent turn, which needs the AI
+#                 binding and a model round-trip.
+#
+# Run `npm run dev` in another terminal first, then:
+#   ./script/run                          # against http://127.0.0.1:8787
+#   ./script/run https://my-deploy.example.workers.dev
+#   NAME=foo ./script/run                 # use DO instance 'foo' instead of 'demo'
+#   CONTAINERS=1 AGENT=1 ./script/run     # include the opt-in backends
+
+set -euo pipefail
+
+BASE_URL="${1:-http://127.0.0.1:8787}"
+BASE_URL="${BASE_URL%/}"
+NAME="${NAME:-demo}"
+PATH_VIA_API="api-wrote.txt"
+PATH_VIA_CODEMODE="codemode-wrote.txt"
+
+step() { printf '\n=== %s ===\n' "$*"; }
+fail() { printf '\nFAIL: %s\n' "$*" >&2; exit 1; }
+
+# POST one command to a named backend and echo the raw JSON result
+# ({ exitCode, stdout, stderr }). $1 backend, $2 command.
+exec_on() {
+  curl -fsS -X POST "${BASE_URL}/c/${NAME}/exec" \
+    -H 'content-type: application/json' \
+    -d "$(BACKEND="$1" COMMAND="$2" node -e \
+      'process.stdout.write(JSON.stringify({backend:process.env.BACKEND,command:process.env.COMMAND}))')"
+}
+
+step "1. write via API: PUT /c/${NAME}/file/workspace/${PATH_VIA_API}"
+# The durable object materializes the /workspace mount root on
+# first use, so this first write works on a fresh instance.
+printf 'hello-from-api' | curl -fsS -X PUT --data-binary @- \
+  "${BASE_URL}/c/${NAME}/file/workspace/${PATH_VIA_API}" \
+  -w 'HTTP %{http_code}\n'
+
+step "2. read via shell backend: cat /workspace/${PATH_VIA_API}"
+shell_out=$(exec_on shell "cat /workspace/${PATH_VIA_API}")
+printf '%s\n' "$shell_out"
+echo "$shell_out" | grep -q 'hello-from-api' \
+  || fail "shell backend did not see the file the API just wrote"
+
+step "3. codemode backend: write ${PATH_VIA_CODEMODE} in JS, read ${PATH_VIA_API} back"
+# The command is JavaScript, not a shell line. It reaches the same
+# tree through the state.* namespace the codemode backend injects.
+codemode_js='await state.writeFile("/workspace/'"${PATH_VIA_CODEMODE}"'", "hello-from-codemode");
+return await state.readFile("/workspace/'"${PATH_VIA_API}"'");'
+codemode_out=$(exec_on codemode "$codemode_js")
+printf '%s\n' "$codemode_out"
+echo "$codemode_out" | grep -q 'hello-from-api' \
+  || fail "codemode backend did not read back the API-written file"
+
+step "4. read codemode's file via API: GET /c/${NAME}/file/workspace/${PATH_VIA_CODEMODE}"
+read_via_api=$(curl -fsS "${BASE_URL}/c/${NAME}/file/workspace/${PATH_VIA_CODEMODE}")
+printf '%s\n' "$read_via_api"
+[[ "$read_via_api" == "hello-from-codemode" ]] \
+  || fail "API did not see the file codemode just wrote (got: $read_via_api)"
+
+if [[ "${CONTAINERS:-}" == "1" ]]; then
+  step "5. container backend: cat /workspace/${PATH_VIA_CODEMODE} inside the container"
+  container_out=$(exec_on container "cat /workspace/${PATH_VIA_CODEMODE}")
+  printf '%s\n' "$container_out"
+  echo "$container_out" | grep -q 'hello-from-codemode' \
+    || fail "container backend did not see the file codemode wrote"
+fi
+
+if [[ "${AGENT:-}" == "1" ]]; then
+  step "6. agent turn: POST /c/${NAME}/agent"
+  agent_out=$(curl -fsS -X POST "${BASE_URL}/c/${NAME}/agent" \
+    -H 'content-type: application/json' \
+    -d '{"prompt":"Read the file at /workspace/'"${PATH_VIA_API}"' and tell me its contents."}')
+  printf '%s\n' "$agent_out"
+fi
+
+printf '\nOK — one filesystem, reached through every backend.\n'

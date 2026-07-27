@@ -1,0 +1,62 @@
+{
+  // Example: Worker + Durable Object that runs one Workspace with
+  // three backends (shell, codemode, container) and an optional
+  // agent layer.
+  //
+  // The durable object owns the filesystem and registers all three
+  // backends. The shell and codemode backends run in Dynamic
+  // Workers minted through env.LOADER; the container backend boots a
+  // Cloudflare Container running wsd, but only on first use. The
+  // agent loop runs in the Worker and reaches the workspace through
+  // its stub, so the workspace itself never depends on a model.
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "workspace-codemode-example",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-05-26",
+  "compatibility_flags": ["nodejs_compat", "experimental"],
+
+  // Workers AI binding. The agent layer calls it through
+  // workers-ai-provider to drive the model loop.
+  "ai": {
+    "binding": "AI"
+  },
+
+  // Worker Loader binding. The shell and codemode backends both mint
+  // Dynamic Workers through it.
+  "worker_loaders": [
+    {
+      "binding": "LOADER"
+    }
+  ],
+
+  // Cloudflare Container image for the container backend. Built from
+  // the local Dockerfile, which pulls the wsd binary from GHCR. The
+  // container boots lazily, on the first exec routed to the
+  // "container" backend, so registering it costs nothing until used.
+  "containers": [
+    {
+      "class_name": "CodemodeExample",
+      "image": "./Dockerfile",
+      "instance_type": "standard-2",
+      "max_instances": 5,
+      "rollout_active_grace_period": 0,
+      "rollout_step_percentage": [100]
+    }
+  ],
+
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "CodemodeExample",
+        "class_name": "CodemodeExample"
+      }
+    ]
+  },
+
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["CodemodeExample"]
+    }
+  ]
+}

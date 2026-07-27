@@ -1,0 +1,23 @@
+{
+  "name": "@example/workspace-codemode",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Example Worker + Durable Object that runs LLM-authored JavaScript inside a codemode sandbox via @cloudflare/workspace's CodemodeBackend.",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@cloudflare/workspace": "*",
+    "ai": "^6.0.196",
+    "workers-ai-provider": "^3.1.14",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260616.1",
+    "typescript": "^6.0.3",
+    "wrangler": "^4.96.0"
+  }
+}
