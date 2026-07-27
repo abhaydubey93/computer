@@ -27,6 +27,10 @@
       "types": "./dist/artifacts/index.d.ts",
       "import": "./dist/artifacts/index.js"
     },
+    "./backends/codemode": {
+      "types": "./dist/backends/codemode/index.d.ts",
+      "import": "./dist/backends/codemode/index.js"
+    },
     "./backends/container": {
       "types": "./dist/backends/container/index.d.ts",
       "import": "./dist/backends/container/index.js"
@@ -55,14 +59,16 @@
     "prepare": "npm run build:shell-bundle",
     "build": "rolldown -c",
     "typecheck": "tsc -p tsconfig.build.json --noEmit",
-    "test": "vitest run && vitest run --config vitest.config.proxy.ts && vitest run --config vitest.config.worker-backend.ts && vitest run --config vitest.config.stub-soak.ts",
+    "test": "vitest run && vitest run --config vitest.config.proxy.ts && vitest run --config vitest.config.worker-backend.ts && vitest run --config vitest.config.codemode-backend.ts && vitest run --config vitest.config.stub-soak.ts",
     "test:stub-soak": "vitest run --config vitest.config.stub-soak.ts",
     "test:worker-backend": "vitest run --config vitest.config.worker-backend.ts",
+    "test:codemode-backend": "vitest run --config vitest.config.codemode-backend.ts",
     "test:harness": "./test-harness/run-harness.sh",
     "bench:harness": "./test-harness/run-harness.sh bench",
     "prepublishOnly": "npm run build && npm test"
   },
   "dependencies": {
+    "@cloudflare/codemode": "^0.5.0",
     "capnweb": "^0.8.0",
     "just-bash": "^3.0.1"
   },

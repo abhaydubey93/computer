@@ -1,0 +1,29 @@
+{
+  // Test-only worker for the CodemodeBackend integration tests. Not
+  // deployed. Wires:
+  //
+  //   - HOST — a host Durable Object that owns a Workspace whose
+  //     only backend is a CodemodeBackend dialing through
+  //     env.LOADER. Unlike the worker backend harness, there is no
+  //     WorkspaceServiceProxy: the codemode sandbox reaches the host
+  //     through the state.* dispatchers the backend passes into the
+  //     executor, not through a durable-object-namespace loopback.
+  //   - LOADER — the Worker Loader binding the backend's
+  //     DynamicWorkerExecutor mints each sandbox isolate through.
+  //
+  // The default export is a thin WorkerEntrypoint the test driver
+  // pokes through SELF.fetch, routing by URL into the DO so each
+  // case can spin up a fresh workspace id.
+  "name": "workspace-codemode-backend-tests",
+  "main": "./codemode-backend-worker.ts",
+  "compatibility_date": "2026-05-26",
+  "compatibility_flags": ["nodejs_compat", "experimental"],
+
+  "worker_loaders": [{ "binding": "LOADER" }],
+
+  "durable_objects": {
+    "bindings": [{ "name": "HOST", "class_name": "HostDO" }]
+  },
+
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["HostDO"] }]
+}
