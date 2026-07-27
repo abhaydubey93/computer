@@ -19,7 +19,7 @@ It provides:
  - A fs API for working with files and directories compatible with Worker bindings.
  - R2-backed mounts for pre-filling read-only data into the workspace tree.
  - Durability over DO restarts for all file operations.
- - A pluggable shell backend: a Cloudflare Container running the `wsd` FUSE daemon (full Linux userland) or a Dynamic Worker running [just-bash](https://github.com/vercel-labs/just-bash) (no container, broad textual tooling).
+ - Pluggable backends for running commands against the workspace: a Cloudflare Container running the `wsd` FUSE daemon (full Linux userland), a Dynamic Worker running [just-bash](https://github.com/vercel-labs/just-bash) (no container, broad textual tooling), or a Dynamic Worker running a JavaScript snippet in a network-isolated sandbox (codemode).
  - Workspace constructable without a backend, for filesystem-only use cases.
  - Out-of-the-box tools for `@cloudflare/agents`. **(not yet implemented)**
 
@@ -44,6 +44,7 @@ The package ships several entrypoints:
 | `@cloudflare/workspace` | The Workspace facade, stub types, the R2 mount, and proxy classes. |
 | `@cloudflare/workspace/backends/container` | `CloudflareContainerBackend` and `withWorkspaceContainer`. Pulls in the wsd / capnweb sync plumbing. |
 | `@cloudflare/workspace/backends/worker` | `WorkerBackend` and the bundled just-bash shell. The shell ships as a record of code-split modules the Dynamic Worker loads on demand: a ~290 KB entry parsed on cold start, plus ~2.5 MB of chunks that stay cold until a script reaches for them. |
+| `@cloudflare/workspace/backends/codemode` | `CodemodeBackend`. Runs a JavaScript snippet in a network-isolated Dynamic Worker that reaches the workspace through a `state.*` namespace. |
 | `@cloudflare/workspace/git` | Isomorphic-git glue for working with checkouts inside the workspace. |
 | `@cloudflare/workspace/artifacts` | `createArtifact`, a session-scoped facade over the Cloudflare Artifacts Workers binding, plus its argv CLI. |
 
@@ -235,6 +236,7 @@ above, then dive into the area you're working on.
 | [13. Git interface](./13_git_interface.md) | `workspace.git` and the `git` CLI inside the shell, backed by isomorphic-git. |
 | [14. Assets interface](./14_assets_interface.md) | `share` a workspace file to R2 and get back a presigned URL. |
 | [15. Artifacts interface](./15_artifacts_interface.md) | `createArtifact` and the `artifacts` CLI, a session-scoped facade over the Cloudflare Artifacts binding. |
+| [16. Codemode backend](./16_codemode_backend.md) | Running a JavaScript snippet in a network-isolated Dynamic Worker that reaches the workspace through a `state.*` namespace. |
 
 ## High-level API
 

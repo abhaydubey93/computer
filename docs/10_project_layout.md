@@ -56,10 +56,11 @@ packages/workspace/
 │   ├── workspace.ts                 # Workspace facade
 │   ├── shell.ts                     # WorkspaceShell
 │   ├── backend.ts                   # Backend interface
-│   ├── backends/
-│   │   ├── container/               # Cloudflare Container + wsd backend
-│   │   ├── worker/                  # Dynamic Worker + just-bash backend
-│   │   └── test.ts                  # In-process test backend
+ │   ├── backends/
+ │   │   ├── container/               # Cloudflare Container + wsd backend
+ │   │   ├── worker/                  # Dynamic Worker + just-bash backend
+ │   │   ├── codemode/                # Dynamic Worker + JavaScript sandbox backend
+ │   │   └── test.ts                  # In-process test backend
 │   ├── proxy.ts                     # WorkspaceProxy
 │   ├── proxy-stub.ts                # Client-side stub plumbing
 │   ├── stub.ts                      # DO stub helpers
