@@ -26,8 +26,8 @@ import type { ExecEvent, ShellRPC, SyncRPC, WorkspaceRPC } from "@cloudflare/com
 
 import type { BackendHandle, WorkspaceBackend } from "../../backend.js";
 import type { WorkspaceServiceProxyProps } from "../../proxy.js";
-import { SHELL_MODULES } from "./generated-bundle.js";
 import { SHELL_RUNTIME_MODULES } from "./runtime-modules.js";
+import { SHELL_MODULES } from "./shell-modules.js";
 
 // The shape the loaded ShellWorker exposes. The host-side
 // implementation lives in ./entrypoint.ts; the backend consumes

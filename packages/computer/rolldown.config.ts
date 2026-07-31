@@ -30,6 +30,18 @@ export default defineConfig({
     "tools/index": "src/tools/index.ts",
     "backends/container/index": "src/backends/container/index.ts",
     "backends/worker/index": "src/backends/worker/index.ts",
+    // The shell-module groups build-bundle.mjs emits, plus the
+    // empty stub. Each is its own entry so it lands at the dist
+    // path the ./shell/* and ./empty package exports point at;
+    // shell-modules.ts imports them by subpath (kept external
+    // below) so a consumer can alias any of them out.
+    "backends/worker/shell/core": "src/backends/worker/generated/core.ts",
+    "backends/worker/shell/curl": "src/backends/worker/generated/curl.ts",
+    "backends/worker/shell/html-to-markdown": "src/backends/worker/generated/html-to-markdown.ts",
+    "backends/worker/shell/python": "src/backends/worker/generated/python.ts",
+    "backends/worker/shell/sqlite": "src/backends/worker/generated/sqlite.ts",
+    "backends/worker/shell/js-exec": "src/backends/worker/generated/js-exec.ts",
+    "backends/worker/empty": "src/backends/worker/empty.ts",
     "observe/cloudflare": "src/observe/cloudflare.ts",
   },
   external: [
@@ -41,6 +53,13 @@ export default defineConfig({
     "isomorphic-git",
     /^isomorphic-git\//,
     "just-bash",
+    // shell-modules.ts imports the generated groups by their
+    // published subpath so a consumer's wrangler `alias` can swap
+    // any of them for @cloudflare/computer/empty. Keep the
+    // specifiers intact in the emitted bundle rather than inlining
+    // the group here; each group is built as its own entry above.
+    /^@cloudflare\/computer\/shell\//,
+    "@cloudflare/computer/empty",
     "node:crypto",
     "node:events",
   ],

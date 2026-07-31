@@ -254,7 +254,15 @@ network-bound `git` subcommands do. See
   `@cloudflare/computer/backends/worker` as `SHELL_MODULES`
   (a record of module name → source covering the entry plus
   every code-split chunk); the backend hands the whole record
-  to the Loader callback itself.
+  to the Loader callback itself. `SHELL_MODULES` is assembled
+  from per-feature groups — a core group plus one per optional
+  command (`curl`, `html-to-markdown`, `python`, `sqlite`,
+  `js-exec`), each published on its own
+  `@cloudflare/computer/shell/<feature>` subpath. Aliasing a
+  subpath to `@cloudflare/computer/empty` in `wrangler.jsonc`
+  drops that feature's chunks — and its heavy dependency (undici
+  for `curl`, domino for `html-to-markdown`) — from the uploaded
+  Worker.
 
 The DO's backend wiring fits in three lines:
 

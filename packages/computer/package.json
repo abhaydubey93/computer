@@ -39,6 +39,34 @@
       "types": "./dist/backends/worker/index.d.ts",
       "import": "./dist/backends/worker/index.js"
     },
+    "./shell/core": {
+      "types": "./dist/backends/worker/shell/core.d.ts",
+      "default": "./dist/backends/worker/shell/core.js"
+    },
+    "./shell/curl": {
+      "types": "./dist/backends/worker/shell/curl.d.ts",
+      "default": "./dist/backends/worker/shell/curl.js"
+    },
+    "./shell/html-to-markdown": {
+      "types": "./dist/backends/worker/shell/html-to-markdown.d.ts",
+      "default": "./dist/backends/worker/shell/html-to-markdown.js"
+    },
+    "./shell/python": {
+      "types": "./dist/backends/worker/shell/python.d.ts",
+      "default": "./dist/backends/worker/shell/python.js"
+    },
+    "./shell/sqlite": {
+      "types": "./dist/backends/worker/shell/sqlite.d.ts",
+      "default": "./dist/backends/worker/shell/sqlite.js"
+    },
+    "./shell/js-exec": {
+      "types": "./dist/backends/worker/shell/js-exec.d.ts",
+      "default": "./dist/backends/worker/shell/js-exec.js"
+    },
+    "./empty": {
+      "types": "./dist/backends/worker/empty.d.ts",
+      "default": "./dist/backends/worker/empty.js"
+    },
     "./observe/cloudflare": {
       "types": "./dist/observe/cloudflare.d.ts",
       "import": "./dist/observe/cloudflare.js"

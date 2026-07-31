@@ -25,7 +25,7 @@ export { type WorkspaceFs, WorkspaceFsAdapter } from "./adapter.js";
 export { type ArtifactsCommandHost, defineArtifactsCommand } from "./artifacts-command.js";
 export { type AssetsCommandHost, defineAssetsCommand } from "./assets-command.js";
 export { type ExecInput, ShellWorker, type ShellWorkerOptions } from "./entrypoint.js";
-export { SHELL_MODULES } from "./generated-bundle.js";
 export { defineGitCommand, type GitCommandHost } from "./git-command.js";
 export { SHELL_RUNTIME_MODULES } from "./runtime-modules.js";
+export { SHELL_MODULES } from "./shell-modules.js";
 export { WorkerBackend, type WorkerBackendOptions, type WorkerShellFetcher } from "./worker.js";

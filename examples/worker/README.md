@@ -129,6 +129,37 @@ curl -X POST http://127.0.0.1:8787/c/demo/exec \
   -d '{"command":"cat hello.txt && wc -l hello.txt","encoding":"utf8"}'
 ```
 
+## Trimming the shell bundle
+
+`SHELL_MODULES` carries every just-bash command, and a handful of
+optional ones dominate the upload: `curl` drags in undici
+(~620 KB) and `html-to-markdown` drags in domino (~555 KB), with
+`python`, `sqlite`, and `js-exec` behind them. Each optional
+command's chunks live behind their own
+`@cloudflare/computer/shell/<feature>` subpath, so a Worker that
+doesn't need one can drop it at build time with a wrangler
+`alias`:
+
+```jsonc
+"alias": {
+  "@cloudflare/computer/shell/curl": "@cloudflare/computer/empty",
+  "@cloudflare/computer/shell/html-to-markdown": "@cloudflare/computer/empty"
+}
+```
+
+Aliasing a feature to `@cloudflare/computer/empty` swaps its
+module group for an empty table, so its chunks — the heavy
+dependency included — never enter the uploaded Worker. The
+available features are `curl`, `html-to-markdown`, `python`,
+`sqlite`, and `js-exec`. The command still parses; invoking one
+after its chunk is gone fails at runtime with a "module not
+found". Leaving the alias out ships the whole shell.
+
+This example drops `curl` and `html-to-markdown`, which takes the
+Worker upload from ~5,956 KiB to ~4,774 KiB raw (~1,344 KiB to
+~1,071 KiB gzip). Remove the `alias` entries in
+[`wrangler.jsonc`](wrangler.jsonc) to ship them.
+
 ## Layout
 
 ```

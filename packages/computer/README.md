@@ -128,6 +128,29 @@ export class ContainerExample extends withWorkspace(
 ) {}
 ```
 
+The worker backend bundles every just-bash command into
+`SHELL_MODULES`, and a few optional ones dominate the upload —
+`curl` carries undici (~620 KB) and `html-to-markdown` carries
+domino (~555 KB). Each optional command's chunks sit behind their
+own `@cloudflare/computer/shell/<feature>` subpath, so a Worker
+that doesn't need one drops it at build time by aliasing the
+subpath to `@cloudflare/computer/empty` in `wrangler.jsonc`:
+
+```jsonc
+"alias": {
+  "@cloudflare/computer/shell/curl": "@cloudflare/computer/empty",
+  "@cloudflare/computer/shell/html-to-markdown": "@cloudflare/computer/empty"
+}
+```
+
+That swaps the feature's module group for an empty table, so its
+chunks — the heavy dependency included — never reach the uploaded
+Worker; dropping both above removes ~1.2 MB raw. The features are
+`curl`, `html-to-markdown`, `python`, `sqlite`, and `js-exec`.
+The command still parses, but invoking one after its chunk is
+gone fails at runtime with a "module not found". Leaving the
+alias out ships the whole shell. See `examples/worker/`.
+
 Filesystem only — no backend, no shell:
 
 ```ts

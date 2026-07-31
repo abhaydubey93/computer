@@ -10,7 +10,18 @@
     "esModuleInterop": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "types": ["@cloudflare/workers-types", "vitest/globals", "node"]
+    "types": ["@cloudflare/workers-types", "vitest/globals", "node"],
+    "paths": {
+      "@cloudflare/computer/shell/core": ["./src/backends/worker/generated/core.ts"],
+      "@cloudflare/computer/shell/curl": ["./src/backends/worker/generated/curl.ts"],
+      "@cloudflare/computer/shell/html-to-markdown": [
+        "./src/backends/worker/generated/html-to-markdown.ts"
+      ],
+      "@cloudflare/computer/shell/python": ["./src/backends/worker/generated/python.ts"],
+      "@cloudflare/computer/shell/sqlite": ["./src/backends/worker/generated/sqlite.ts"],
+      "@cloudflare/computer/shell/js-exec": ["./src/backends/worker/generated/js-exec.ts"],
+      "@cloudflare/computer/empty": ["./src/backends/worker/empty.ts"]
+    }
   },
   "include": ["src/**/*.ts", "*.ts"]
 }

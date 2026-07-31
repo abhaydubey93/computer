@@ -11,6 +11,22 @@
   "compatibility_date": "2026-05-26",
   "compatibility_flags": ["nodejs_compat", "experimental"],
 
+  // Drop optional just-bash commands this example doesn't use.
+  // @cloudflare/computer bundles each optional command's chunks
+  // (curl's undici, html-to-markdown's domino, python, sqlite,
+  // js-exec) behind its own @cloudflare/computer/shell/<feature>
+  // subpath. Aliasing a feature to @cloudflare/computer/empty
+  // swaps it for an empty module table, so its chunks — including
+  // the heavy dependency — never enter the uploaded Worker.
+  // Dropping curl and html-to-markdown alone removes ~1.2 MB raw
+  // (~620 KB undici + ~555 KB domino). The commands still parse;
+  // invoking one fails at runtime once its chunk is gone. Remove
+  // an entry to ship that feature.
+  "alias": {
+    "@cloudflare/computer/shell/curl": "@cloudflare/computer/empty",
+    "@cloudflare/computer/shell/html-to-markdown": "@cloudflare/computer/empty"
+  },
+
   // Worker Loader binding. The DO calls env.LOADER.get(id, ...)
   // to mint a Dynamic Worker that the WorkerBackend then
   // dispatches shell.exec into.
