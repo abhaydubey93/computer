@@ -384,7 +384,7 @@ describe("WorkspaceStub", () => {
     // bound — without the cascade, every getWorkspace() leaks two
     // sub-stubs on the peer side.
     //
-    // The WorkerBackend reaches the fs half via `stub().fs` and
+    // The WorkerShellBackend reaches the fs half via `stub().fs` and
     // depends on this cascade for its own disposal contract; pin
     // it here so a future refactor that drops the cascade fails
     // loudly.
@@ -421,7 +421,7 @@ describe("WorkspaceStub", () => {
     });
 
     it("stub().fs survives long enough for the backend to hand it off", async () => {
-      // The WorkerBackend pattern is:
+      // The WorkerShellBackend pattern is:
       //   using stub = workspace.stub();
       //   await fetcher.exec(input, stub.fs);
       // The fs reference must remain a live RpcTarget for the

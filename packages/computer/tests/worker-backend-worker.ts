@@ -1,4 +1,4 @@
-// Workerd test harness for the WorkerBackend integration tests.
+// Workerd test harness for the WorkerShellBackend integration tests.
 //
 // Three exports:
 //
@@ -8,7 +8,7 @@
 //     Dynamic Worker; the loaded ShellWorker reaches it through
 //     env.HOST.getWorkspace().
 //   - HostDO — the host Durable Object. Owns one Workspace whose
-//     only backend is a WorkerBackend dialing through env.LOADER.
+//     only backend is a WorkerShellBackend dialing through env.LOADER.
 //     Exposes writeFile / readFile / exec methods the test calls
 //     directly through the DO stub; the exec method goes through
 //     workspace.runtime.exec which actually drives just-bash in a
@@ -18,7 +18,7 @@
 //     SELF.fetch instead of holding a DO reference itself.
 
 import { DurableObject, WorkerEntrypoint } from "cloudflare:workers";
-import { WorkerBackend } from "../src/backends/worker/index.js";
+import { WorkerShellBackend } from "../src/backends/worker-shell/index.js";
 import type { DurableObjectStorageLike, WorkspaceStub } from "../src/index.js";
 import { Workspace } from "../src/index.js";
 
@@ -38,7 +38,7 @@ export class HostDO extends DurableObject<Env> {
     this.#workspace = new Workspace({
       storage: ctx.storage as unknown as DurableObjectStorageLike,
       backends: [
-        new WorkerBackend({
+        new WorkerShellBackend({
           loader: env.LOADER,
           workspace: { binding: "HOST", id: ctx.id.toString() },
           ctx,

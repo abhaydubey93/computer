@@ -1,5 +1,5 @@
 import { DurableObject, RpcTarget, WorkerEntrypoint } from "cloudflare:workers";
-import { IsolateJavaScriptBackend } from "../src/backends/javascript/index.js";
+import { WorkerJavaScriptBackend } from "../src/backends/worker-javascript/index.js";
 import { createGitClient } from "../src/git/index.js";
 import type {
   DurableObjectStorageLike,
@@ -23,7 +23,7 @@ export class HostDO extends DurableObject<Env> {
       waitUntil: ctx.waitUntil.bind(ctx),
       git: createGitClient(),
       backends: [
-        new IsolateJavaScriptBackend({
+        new WorkerJavaScriptBackend({
           loader: env.LOADER,
           maxLogBytes: 64,
           maxLogEvents: 4,
@@ -86,7 +86,7 @@ export class HostDO extends DurableObject<Env> {
   }) {
     await this.#workspace.fs.mkdir("/workspace", { recursive: true });
     const handle = await this.#workspace.runtime.exec(input.source, {
-      backend: "isolate-javascript",
+      backend: "worker-javascript",
       cwd: input.cwd,
       input: input.value,
       id: input.id,
@@ -98,7 +98,7 @@ export class HostDO extends DurableObject<Env> {
   async startRuntime(input: { source: string; id: string }) {
     await this.#workspace.fs.mkdir("/workspace", { recursive: true });
     const handle = await this.#workspace.runtime.exec(input.source, {
-      backend: "isolate-javascript",
+      backend: "worker-javascript",
       id: input.id,
     });
     void handle.result().catch(() => undefined);
@@ -108,7 +108,7 @@ export class HostDO extends DurableObject<Env> {
   async getRuntime(id: string, resume?: "tail") {
     try {
       const handle = await this.#workspace.runtime.getExec(id, {
-        backend: "isolate-javascript",
+        backend: "worker-javascript",
         encoding: "utf8",
         resume,
       });
@@ -122,11 +122,11 @@ export class HostDO extends DurableObject<Env> {
   }
 
   killRuntime(id: string) {
-    return this.#workspace.runtime.killExec(id, { backend: "isolate-javascript" });
+    return this.#workspace.runtime.killExec(id, { backend: "worker-javascript" });
   }
 
   disposeRuntime(id: string) {
-    return this.#workspace.runtime.disposeExec(id, { backend: "isolate-javascript" });
+    return this.#workspace.runtime.disposeExec(id, { backend: "worker-javascript" });
   }
 }
 

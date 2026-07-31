@@ -266,7 +266,7 @@ export class WorkspaceRuntimeBridge extends RpcTarget {
         this.#requireWrite("Artifacts import");
         if (!this.#allowArtifactNetwork) {
           throw new Error(
-            "Artifacts import requires IsolateJavaScriptBackend allowArtifactNetwork: true.",
+            "Artifacts import requires WorkerJavaScriptBackend allowArtifactNetwork: true.",
           );
         }
         return this.#artifacts.import(
@@ -295,7 +295,7 @@ export class WorkspaceRuntimeBridge extends RpcTarget {
 
   #requireGitNetwork(operation: string) {
     if (!this.#allowGitNetwork) {
-      throw new Error(`${operation} requires IsolateJavaScriptBackend allowGitNetwork: true.`);
+      throw new Error(`${operation} requires WorkerJavaScriptBackend allowGitNetwork: true.`);
     }
   }
 

@@ -1,4 +1,4 @@
-// End-to-end integration test for the WorkerBackend.
+// End-to-end integration test for the WorkerShellBackend.
 //
 // Unlike worker.test.ts and entrypoint.test.ts (vitest/node, both
 // of which mock the runtime with fakes), this suite runs inside
@@ -11,7 +11,7 @@
 //     │                      │  HOST.get(id)            │
 //     │                      ├─────────────────────────►│
 //     │                      │                          │  Workspace.shell.exec
-//     │                      │                          ├──► WorkerBackend
+//     │                      │                          ├──► WorkerShellBackend
 //     │                      │                          │      │
 //     │                      │                          │      │ env.LOADER.get(...)
 //     │                      │                          │      │   .getEntrypoint("ShellWorker")
@@ -78,7 +78,7 @@ async function exec(
   return res.json();
 }
 
-describe("WorkerBackend end-to-end", () => {
+describe("WorkerShellBackend end-to-end", () => {
   // Per-test timeouts come from vitest.config.worker-backend.ts's
   // testTimeout: 60_000 — the Worker Loader cold start + the
   // shell.js parse + just-bash boot dominates the runtime.

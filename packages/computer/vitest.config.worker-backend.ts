@@ -1,4 +1,4 @@
-// Workerd-backed runner for the WorkerBackend integration tests.
+// Workerd-backed runner for the WorkerShellBackend integration tests.
 // The default vitest config aliases ./proxy.js and cloudflare:workers
 // to throwing stubs so the node runner doesn't have to resolve them;
 // the worker backend's real wiring (Worker Loader binding, the

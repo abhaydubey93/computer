@@ -1,4 +1,4 @@
-// Tests for WorkerBackend.
+// Tests for WorkerShellBackend.
 //
 // The backend's job is small: when Workspace.shell.exec lands, it
 // dispatches into a user-supplied "shell fetcher" (the Fetcher
@@ -23,7 +23,7 @@ import { describe, expect, it } from "vitest";
 
 import type { BackendHandle, WorkspaceBackend } from "../../backend.js";
 import { Workspace } from "../../workspace.js";
-import { WorkerBackend } from "./worker.js";
+import { WorkerShellBackend } from "./worker-shell.js";
 
 type WireEvent =
   | { id: string; seq: number; name: "stdout"; value: string }
@@ -78,7 +78,7 @@ function fakeFetcher(
 
 function noopFsBackend(): WorkspaceBackend {
   // Stand-in backend so Workspace.ready() resolves without
-  // wiring a real sync peer. WorkerBackend itself declares
+  // wiring a real sync peer. WorkerShellBackend itself declares
   // sync: "none"; this fake just stops the test from depending
   // on a container.
   return {
@@ -96,7 +96,7 @@ function noopFsBackend(): WorkspaceBackend {
   };
 }
 
-describe("WorkerBackend", () => {
+describe("WorkerShellBackend", () => {
   it("returns a BackendHandle with sync: 'none'", async () => {
     const fetcher = fakeFetcher(() => {
       throw new Error("exec not called in this test");
@@ -106,7 +106,7 @@ describe("WorkerBackend", () => {
       backends: [noopFsBackend()],
     });
     await ws.ready();
-    const backend = new WorkerBackend({ fetcher: () => fetcher });
+    const backend = new WorkerShellBackend({ fetcher: () => fetcher });
     const handle = await backend.connect();
     expect(handle.sync).toBe("none");
     await handle.close();
@@ -127,7 +127,7 @@ describe("WorkerBackend", () => {
       backends: [noopFsBackend()],
     });
     await ws.ready();
-    const backend = new WorkerBackend({ fetcher: () => fetcher });
+    const backend = new WorkerShellBackend({ fetcher: () => fetcher });
     const handle = await backend.connect();
 
     const envelope = await handle.rpc.shell.exec({ command: "echo hello" });
@@ -158,7 +158,7 @@ describe("WorkerBackend", () => {
         },
       }),
     }));
-    const handle = await new WorkerBackend({ fetcher: () => fetcher }).connect();
+    const handle = await new WorkerShellBackend({ fetcher: () => fetcher }).connect();
     const envelope = await handle.rpc.shell.exec({ command: "bad" });
     await expect(envelope.events.getReader().read()).rejects.toMatchObject({ code: "EPROTOCOL" });
   });
@@ -177,7 +177,7 @@ describe("WorkerBackend", () => {
       backends: [noopFsBackend()],
     });
     await ws.ready();
-    const backend = new WorkerBackend({ fetcher: () => fetcher });
+    const backend = new WorkerShellBackend({ fetcher: () => fetcher });
     const handle = await backend.connect();
     await handle.rpc.shell.exec({ command: "x", cwd: "/workspace/src", id: "fixed" });
     expect(observed?.cwd).toBe("/workspace/src");
@@ -185,7 +185,7 @@ describe("WorkerBackend", () => {
   });
 
   it("plumbs through Workspace.shell.exec end-to-end", async () => {
-    // Construct WorkerBackend as the sole backend of a Workspace
+    // Construct WorkerShellBackend as the sole backend of a Workspace
     // and exercise the public shell.exec entry point. Pushes and
     // pulls are no-ops because of sync: "none".
     const fetcher = fakeFetcher((input) => ({
@@ -197,7 +197,7 @@ describe("WorkerBackend", () => {
     }));
     const ws = new Workspace({
       storage: new SQLiteTestStorage() as never,
-      backends: [new WorkerBackend({ fetcher: () => fetcher })],
+      backends: [new WorkerShellBackend({ fetcher: () => fetcher })],
     });
     await ws.ready();
     const handle = await ws.runtime.exec("echo world", { encoding: "utf8" });
@@ -234,7 +234,7 @@ describe("WorkerBackend", () => {
       },
     };
 
-    const backend = new WorkerBackend({
+    const backend = new WorkerShellBackend({
       loader,
       workspace: { binding: "WorkspaceHost", id: "abc" },
       ctx,
@@ -267,7 +267,7 @@ describe("WorkerBackend", () => {
         };
       },
     };
-    const backend = new WorkerBackend({
+    const backend = new WorkerShellBackend({
       loader,
       workspace: { binding: "WorkspaceHost", id: "abc" },
       ctx: { exports: { WorkspaceServiceProxy: () => ({}) } },
@@ -281,7 +281,7 @@ describe("WorkerBackend", () => {
 
   it("disposes the Loader worker when entrypoint creation fails", async () => {
     let workerDisposals = 0;
-    const backend = new WorkerBackend({
+    const backend = new WorkerShellBackend({
       loader: {
         get() {
           return {
@@ -316,7 +316,7 @@ describe("WorkerBackend", () => {
       backends: [noopFsBackend()],
     });
     await ws.ready();
-    const backend = new WorkerBackend({
+    const backend = new WorkerShellBackend({
       fetcher: async () => {
         factoryCalls += 1;
         return fetcher;

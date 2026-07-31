@@ -3,12 +3,12 @@ import { SQLiteTestStorage } from "@cloudflare/dofs/testing";
 import { describe, expect, it, vi } from "vitest";
 
 import { Workspace } from "../../workspace.js";
-import { IsolateJavaScriptBackend as ProductionIsolateJavaScriptBackend } from "./javascript-backend.js";
+import { WorkerJavaScriptBackend as ProductionWorkerJavaScriptBackend } from "./worker-javascript.js";
 
-class IsolateJavaScriptBackend extends ProductionIsolateJavaScriptBackend {
+class WorkerJavaScriptBackend extends ProductionWorkerJavaScriptBackend {
   override readonly requiresWaitUntil = false;
 
-  override connect(host: Parameters<ProductionIsolateJavaScriptBackend["connect"]>[0]) {
+  override connect(host: Parameters<ProductionWorkerJavaScriptBackend["connect"]>[0]) {
     return super.connect({ ...host, waitUntil: host.waitUntil ?? (() => {}) });
   }
 }
@@ -21,9 +21,9 @@ function throwingLoader(message: string) {
   };
 }
 
-describe("IsolateJavaScriptBackend", () => {
+describe("WorkerJavaScriptBackend", () => {
   it("requires a host event-lifetime hook", async () => {
-    const backend = new ProductionIsolateJavaScriptBackend({ loader: throwingLoader("unused") });
+    const backend = new ProductionWorkerJavaScriptBackend({ loader: throwingLoader("unused") });
     await expect(
       backend.connect({
         db: undefined as never,
@@ -37,14 +37,14 @@ describe("IsolateJavaScriptBackend", () => {
   it("validates timeout configuration", () => {
     expect(
       () =>
-        new IsolateJavaScriptBackend({
+        new WorkerJavaScriptBackend({
           loader: throwingLoader("unused"),
           maxTimeoutMs: Number.NaN,
         }),
     ).toThrow(/positive finite/);
     expect(
       () =>
-        new IsolateJavaScriptBackend({
+        new WorkerJavaScriptBackend({
           loader: throwingLoader("unused"),
           defaultTimeoutMs: -1,
         }),
@@ -60,7 +60,7 @@ describe("IsolateJavaScriptBackend", () => {
         throw new Error("waitUntil unavailable");
       },
       backends: [
-        new IsolateJavaScriptBackend({
+        new WorkerJavaScriptBackend({
           loader: {
             load() {
               return {
@@ -98,7 +98,7 @@ describe("IsolateJavaScriptBackend", () => {
       storage: new SQLiteTestStorage(),
       waitUntil() {},
       backends: [
-        new IsolateJavaScriptBackend({
+        new WorkerJavaScriptBackend({
           loader: {
             load() {
               return {
@@ -145,7 +145,7 @@ describe("IsolateJavaScriptBackend", () => {
        VALUES ('isolate-javascript', 'legacy', 'completed')`,
     );
     const fs = new WorkspaceFilesystem(db);
-    const backend = new IsolateJavaScriptBackend({ loader: throwingLoader("unused") });
+    const backend = new WorkerJavaScriptBackend({ loader: throwingLoader("unused") });
     await backend.connect({ db, fs, git: undefined as never, artifacts: undefined as never });
     const columns = db.all<{ name: string }>("PRAGMA table_info(workspace_runtime_executions)");
     expect(columns.map((column) => column.name)).toEqual(
@@ -165,7 +165,7 @@ describe("IsolateJavaScriptBackend", () => {
     const workspace = new Workspace({
       storage: new SQLiteTestStorage(),
       backends: [
-        new IsolateJavaScriptBackend({
+        new WorkerJavaScriptBackend({
           loader: { load },
           maxInputBytes: 8,
           maxResultBytes: 8,
@@ -198,7 +198,7 @@ describe("IsolateJavaScriptBackend", () => {
       await blocked;
       return readFile(...args);
     }) as typeof fs.readFile;
-    const backend = new IsolateJavaScriptBackend({ loader: throwingLoader("must not load") });
+    const backend = new WorkerJavaScriptBackend({ loader: throwingLoader("must not load") });
     const handle = await backend.connect({
       db,
       fs,
@@ -225,7 +225,7 @@ describe("IsolateJavaScriptBackend", () => {
     const load = vi.fn();
     const workspace = new Workspace({
       storage: new SQLiteTestStorage(),
-      backends: [new IsolateJavaScriptBackend({ loader: { load }, maxSourceBytes: 128 })],
+      backends: [new WorkerJavaScriptBackend({ loader: { load }, maxSourceBytes: 128 })],
     });
     await workspace.fs.mkdir("/workspace", { recursive: true });
     const execution = await workspace.runtime.exec("export default 1", { encoding: "utf8" });
@@ -240,14 +240,14 @@ describe("IsolateJavaScriptBackend", () => {
     const workspace = new Workspace({
       storage: new SQLiteTestStorage(),
       backends: [
-        new IsolateJavaScriptBackend({
+        new WorkerJavaScriptBackend({
           loader: throwingLoader("loader failed"),
         }),
       ],
     });
     await workspace.fs.mkdir("/workspace", { recursive: true });
     const handle = await workspace.runtime.exec("export default () => 1", {
-      backend: "isolate-javascript",
+      backend: "worker-javascript",
       id: "startup-failure",
       encoding: "utf8",
     });
@@ -257,7 +257,7 @@ describe("IsolateJavaScriptBackend", () => {
       stderr: expect.stringContaining("loader failed"),
     });
     const replay = await workspace.runtime.getExec("startup-failure", {
-      backend: "isolate-javascript",
+      backend: "worker-javascript",
       encoding: "utf8",
     });
     await expect(replay.result()).resolves.toMatchObject({ status: "failed", exitCode: 1 });
@@ -278,20 +278,20 @@ describe("IsolateJavaScriptBackend", () => {
     };
     const first = new Workspace({
       storage,
-      backends: [new IsolateJavaScriptBackend({ loader })],
+      backends: [new WorkerJavaScriptBackend({ loader })],
     });
     await first.fs.mkdir("/workspace", { recursive: true });
     await first.runtime.exec("export default async () => new Promise(() => {})", {
-      backend: "isolate-javascript",
+      backend: "worker-javascript",
       id: "interrupted",
     });
 
     const recreated = new Workspace({
       storage,
-      backends: [new IsolateJavaScriptBackend({ loader })],
+      backends: [new WorkerJavaScriptBackend({ loader })],
     });
     const replay = await recreated.runtime.getExec("interrupted", {
-      backend: "isolate-javascript",
+      backend: "worker-javascript",
       encoding: "utf8",
     });
     await expect(replay.result()).resolves.toMatchObject({
@@ -306,7 +306,7 @@ describe("IsolateJavaScriptBackend", () => {
     const workspace = new Workspace({
       storage: new SQLiteTestStorage(),
       backends: [
-        new IsolateJavaScriptBackend({
+        new WorkerJavaScriptBackend({
           loader: {
             load() {
               return {
@@ -342,7 +342,7 @@ describe("IsolateJavaScriptBackend", () => {
       storage: new SQLiteTestStorage(),
       waitUntil,
       backends: [
-        new IsolateJavaScriptBackend({
+        new WorkerJavaScriptBackend({
           loader: {
             load() {
               return {
@@ -383,7 +383,7 @@ describe("IsolateJavaScriptBackend", () => {
       await writeReleased;
       return originalWrite(...args);
     }) as typeof fs.writeFile;
-    const backend = new IsolateJavaScriptBackend({
+    const backend = new WorkerJavaScriptBackend({
       loader: {
         load() {
           return {
@@ -430,7 +430,7 @@ describe("IsolateJavaScriptBackend", () => {
     const fs = new WorkspaceFilesystem(db);
     await fs.mkdir("/workspace", { recursive: true });
     let aborted = false;
-    const backend = new IsolateJavaScriptBackend({
+    const backend = new WorkerJavaScriptBackend({
       maxHostCallMs: 5,
       trustedModules: {
         "ws:test": {
@@ -494,7 +494,7 @@ describe("IsolateJavaScriptBackend", () => {
       await writeReleased;
       return originalWrite(...args);
     }) as typeof fs.writeFile;
-    const backend = new IsolateJavaScriptBackend({
+    const backend = new WorkerJavaScriptBackend({
       loader: {
         load() {
           return {
@@ -554,7 +554,7 @@ describe("IsolateJavaScriptBackend", () => {
     const evaluation = new Promise<{ result: number }>((resolve) => {
       finish = resolve;
     });
-    const backend = new IsolateJavaScriptBackend({
+    const backend = new WorkerJavaScriptBackend({
       loader: {
         load() {
           return {
@@ -596,7 +596,7 @@ describe("IsolateJavaScriptBackend", () => {
     const workspace = new Workspace({
       storage: new SQLiteTestStorage(),
       backends: [
-        new IsolateJavaScriptBackend({
+        new WorkerJavaScriptBackend({
           loader: throwingLoader("finished"),
           maxRetainedExecutions: 1,
         }),
@@ -618,7 +618,7 @@ describe("IsolateJavaScriptBackend", () => {
     const load = vi.fn();
     const workspace = new Workspace({
       storage: new SQLiteTestStorage(),
-      backends: [new IsolateJavaScriptBackend({ loader: { load } })],
+      backends: [new WorkerJavaScriptBackend({ loader: { load } })],
     });
     await workspace.fs.mkdir("/workspace", { recursive: true });
     await expect(workspace.runtime.exec("export default 1", { cwd: "/outside" })).rejects.toThrow(
@@ -635,7 +635,7 @@ describe("IsolateJavaScriptBackend", () => {
     initializeSchema(db, () => 0);
     const fs = new WorkspaceFilesystem(db);
     await fs.mkdir("/workspace", { recursive: true });
-    const backend = new IsolateJavaScriptBackend({
+    const backend = new WorkerJavaScriptBackend({
       maxExecutionSubscribers: 2,
       loader: {
         load() {
@@ -664,7 +664,7 @@ describe("IsolateJavaScriptBackend", () => {
     const workspace = new Workspace({
       storage: new SQLiteTestStorage(),
       backends: [
-        new IsolateJavaScriptBackend({
+        new WorkerJavaScriptBackend({
           loader: throwingLoader("must not load"),
           trustedModules: {
             "ws:bad/path": {
@@ -679,7 +679,7 @@ describe("IsolateJavaScriptBackend", () => {
     await workspace.fs.mkdir("/workspace", { recursive: true });
     await expect(
       workspace.runtime.exec(`import { call } from "ws:bad/path"; export default call;`, {
-        backend: "isolate-javascript",
+        backend: "worker-javascript",
       }),
     ).rejects.toThrow(/simple reserved ws:\*/);
   });
@@ -688,7 +688,7 @@ describe("IsolateJavaScriptBackend", () => {
     const load = vi.fn();
     const workspace = new Workspace({
       storage: new SQLiteTestStorage(),
-      backends: [new IsolateJavaScriptBackend({ loader: { load }, root: "/" })],
+      backends: [new WorkerJavaScriptBackend({ loader: { load }, root: "/" })],
     });
     await workspace.fs.writeFile("/workspace-capabilities.js", "export const stolen = true");
     await expect(
@@ -704,7 +704,7 @@ describe("IsolateJavaScriptBackend", () => {
     const workspace = new Workspace({
       storage: new SQLiteTestStorage(),
       backends: [
-        new IsolateJavaScriptBackend({
+        new WorkerJavaScriptBackend({
           loader: { load },
           modules: {
             "__workspace_entry__.js": "export default 42",
@@ -715,7 +715,7 @@ describe("IsolateJavaScriptBackend", () => {
     });
     await workspace.fs.mkdir("/workspace", { recursive: true });
     await expect(
-      workspace.runtime.exec("export default 1", { backend: "isolate-javascript" }),
+      workspace.runtime.exec("export default 1", { backend: "worker-javascript" }),
     ).rejects.toThrow(/reserved module name/);
     expect(load).not.toHaveBeenCalled();
   });

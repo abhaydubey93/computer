@@ -32,8 +32,8 @@ export default defineConfig({
     "assets/index": "src/assets/index.ts",
     "tools/index": "src/tools/index.ts",
     "backends/container/index": "src/backends/container/index.ts",
-    "backends/javascript/index": "src/backends/javascript/index.ts",
-    "backends/worker/index": "src/backends/worker/index.ts",
+    "backends/worker-javascript/index": "src/backends/worker-javascript/index.ts",
+    "backends/worker-shell/index": "src/backends/worker-shell/index.ts",
     "observe/cloudflare": "src/observe/cloudflare.ts",
   },
   external: [

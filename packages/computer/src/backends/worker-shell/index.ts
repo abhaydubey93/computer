@@ -8,7 +8,7 @@
 //
 // Imported via:
 //
-//   import { WorkerBackend } from "@cloudflare/computer/backends/worker";
+//   import { WorkerShellBackend } from "@cloudflare/computer/backends/worker-shell";
 //
 // The package ships SHELL_MODULES — a record of module name →
 // source string covering the pre-built ShellWorker entry plus
@@ -18,7 +18,7 @@
 // spreads both into the Loader callback's `modules` table
 // internally; consumers only need to reach for them when they
 // construct the Loader callback by hand (in which case they
-// pass a `fetcher` factory to WorkerBackend instead of
+// pass a `fetcher` factory to WorkerShellBackend instead of
 // `loader` + `workspace` + `ctx`).
 
 export { type WorkspaceFs, WorkspaceFsAdapter } from "./adapter.js";
@@ -28,4 +28,8 @@ export { type ExecInput, ShellWorker, type ShellWorkerOptions } from "./entrypoi
 export { SHELL_MODULES } from "./generated-bundle.js";
 export { defineGitCommand, type GitCommandHost } from "./git-command.js";
 export { SHELL_RUNTIME_MODULES } from "./runtime-modules.js";
-export { WorkerBackend, type WorkerBackendOptions, type WorkerShellFetcher } from "./worker.js";
+export {
+  WorkerShellBackend,
+  type WorkerShellBackendOptions,
+  type WorkerShellFetcher,
+} from "./worker-shell.js";

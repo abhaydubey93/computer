@@ -14,7 +14,7 @@ import type {
 } from "../../runtime/types.js";
 import { buildModuleGraph } from "./module-graph.js";
 
-export interface IsolateJavaScriptBackendOptions {
+export interface WorkerJavaScriptBackendOptions {
   loader: WorkspaceRuntimeLoader;
   id?: string;
   root?: string;
@@ -58,9 +58,9 @@ export interface IsolateJavaScriptBackendOptions {
   allowArtifactNetwork?: boolean;
 }
 
-type ResolvedIsolateJavaScriptBackendOptions = Required<
+type ResolvedWorkerJavaScriptBackendOptions = Required<
   Pick<
-    IsolateJavaScriptBackendOptions,
+    WorkerJavaScriptBackendOptions,
     | "root"
     | "access"
     | "defaultTimeoutMs"
@@ -85,7 +85,7 @@ type ResolvedIsolateJavaScriptBackendOptions = Required<
     | "compatibilityFlags"
   >
 > &
-  IsolateJavaScriptBackendOptions;
+  WorkerJavaScriptBackendOptions;
 
 interface JavaScriptEntrypoint {
   evaluate(
@@ -118,15 +118,15 @@ interface ExecutionRecord {
   persistenceFailed?: boolean;
 }
 
-export class IsolateJavaScriptBackend implements WorkspaceModuleBackend {
+export class WorkerJavaScriptBackend implements WorkspaceModuleBackend {
   readonly protocol = "module" as const;
   readonly requiresWaitUntil = true;
-  readonly type = "isolate-javascript";
+  readonly type = "worker-javascript";
   readonly id: string;
-  readonly #options: ResolvedIsolateJavaScriptBackendOptions;
+  readonly #options: ResolvedWorkerJavaScriptBackendOptions;
 
-  constructor(options: IsolateJavaScriptBackendOptions) {
-    this.id = options.id ?? "isolate-javascript";
+  constructor(options: WorkerJavaScriptBackendOptions) {
+    this.id = options.id ?? "worker-javascript";
     const maxTimeoutMs = options.maxTimeoutMs ?? 30_000;
     const defaultTimeoutMs = options.defaultTimeoutMs ?? Math.min(10_000, maxTimeoutMs);
     assertPositiveFinite(maxTimeoutMs, "maxTimeoutMs");
@@ -157,14 +157,14 @@ export class IsolateJavaScriptBackend implements WorkspaceModuleBackend {
     assertPositiveFinite(options.retentionMs ?? 5 * 60_000, "retentionMs");
     assertPositiveInteger(options.maxRetainedExecutions ?? 100, "maxRetainedExecutions");
     if ((options.maxCapabilityBytes ?? 1024 * 1024) < 256) {
-      throw new Error("IsolateJavaScriptBackend maxCapabilityBytes must be at least 256 bytes.");
+      throw new Error("WorkerJavaScriptBackend maxCapabilityBytes must be at least 256 bytes.");
     }
     const compatibilityDate = options.compatibilityDate ?? "2026-05-23";
     if (!/^\d{4}-\d{2}-\d{2}$/.test(compatibilityDate)) {
-      throw new Error("IsolateJavaScriptBackend compatibilityDate must use YYYY-MM-DD.");
+      throw new Error("WorkerJavaScriptBackend compatibilityDate must use YYYY-MM-DD.");
     }
     if (defaultTimeoutMs > maxTimeoutMs) {
-      throw new Error("IsolateJavaScriptBackend defaultTimeoutMs cannot exceed maxTimeoutMs.");
+      throw new Error("WorkerJavaScriptBackend defaultTimeoutMs cannot exceed maxTimeoutMs.");
     }
     this.#options = {
       ...options,
@@ -197,7 +197,7 @@ export class IsolateJavaScriptBackend implements WorkspaceModuleBackend {
   async connect(host: WorkspaceModuleBackendHost): Promise<WorkspaceModuleBackendHandle> {
     if (!host.waitUntil) {
       throw new Error(
-        "IsolateJavaScriptBackend requires WorkspaceOptions.waitUntil; pass ctx.waitUntil.bind(ctx).",
+        "WorkerJavaScriptBackend requires WorkspaceOptions.waitUntil; pass ctx.waitUntil.bind(ctx).",
       );
     }
     return new JavaScriptBackendHandle(this.#options, host);
@@ -205,7 +205,7 @@ export class IsolateJavaScriptBackend implements WorkspaceModuleBackend {
 }
 
 class JavaScriptBackendHandle implements WorkspaceModuleBackendHandle {
-  readonly #options: ResolvedIsolateJavaScriptBackendOptions;
+  readonly #options: ResolvedWorkerJavaScriptBackendOptions;
   readonly #host: WorkspaceModuleBackendHost;
   readonly #records = new Map<string, ExecutionRecord>();
   readonly #pendingIds = new Set<string>();
@@ -215,7 +215,7 @@ class JavaScriptBackendHandle implements WorkspaceModuleBackendHandle {
   #pendingStarts = 0;
   readonly #pendingStartWaiters = new Set<() => void>();
 
-  constructor(options: ResolvedIsolateJavaScriptBackendOptions, host: WorkspaceModuleBackendHost) {
+  constructor(options: ResolvedWorkerJavaScriptBackendOptions, host: WorkspaceModuleBackendHost) {
     this.#options = options;
     this.#host = host;
     host.db.run(`
@@ -462,7 +462,7 @@ class JavaScriptBackendHandle implements WorkspaceModuleBackendHandle {
   }
 
   get #backendId(): string {
-    return this.#options.id ?? "isolate-javascript";
+    return this.#options.id ?? "worker-javascript";
   }
 
   async #cancel(record: ExecutionRecord, message: string): Promise<void> {
@@ -1069,13 +1069,13 @@ function assertEncodedSize(value: WorkspaceRuntimeValue, maxBytes: number, name:
 
 function assertPositiveFinite(value: number, name: string) {
   if (!Number.isFinite(value) || value <= 0) {
-    throw new Error(`IsolateJavaScriptBackend ${name} must be a positive finite number.`);
+    throw new Error(`WorkerJavaScriptBackend ${name} must be a positive finite number.`);
   }
 }
 
 function assertPositiveInteger(value: number, name: string) {
   if (!Number.isSafeInteger(value) || value <= 0) {
-    throw new Error(`IsolateJavaScriptBackend ${name} must be a positive integer.`);
+    throw new Error(`WorkerJavaScriptBackend ${name} must be a positive integer.`);
   }
 }
 

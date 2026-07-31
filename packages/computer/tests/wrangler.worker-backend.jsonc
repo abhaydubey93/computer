@@ -1,9 +1,9 @@
 {
-  // Test-only worker for the WorkerBackend integration tests. Not
+  // Test-only worker for the WorkerShellBackend integration tests. Not
   // deployed. Wires:
   //
   //   - HOST  — a host Durable Object that owns a Workspace whose
-  //     only backend is a WorkerBackend dialing through env.LOADER.
+  //     only backend is a WorkerShellBackend dialing through env.LOADER.
   //   - LOADER — the Worker Loader binding the backend hands to
   //     env.LOADER.get(...). Miniflare implements the loader; the
   //     loaded Worker is the bundled ShellWorker the workspace

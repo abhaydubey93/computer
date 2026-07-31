@@ -27,8 +27,8 @@ import { fileURLToPath } from "node:url";
 import { build } from "esbuild";
 
 const here = dirname(fileURLToPath(import.meta.url));
-// Script lives at .../backends/worker/script/build-bundle.mjs;
-// the bundle target is one level up at .../backends/worker/.
+// Script lives at .../backends/worker-shell/script/build-bundle.mjs;
+// the bundle target is one level up at .../backends/worker-shell/.
 const root = resolve(here, "..");
 const out = resolve(root, "generated-bundle.ts");
 

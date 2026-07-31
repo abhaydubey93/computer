@@ -103,7 +103,7 @@ export async function buildModuleGraph(options: BuildModuleGraphOptions) {
       }
       if (!Object.hasOwn(options.configuredModules, specifier)) {
         throw new Error(
-          `Module ${JSON.stringify(specifier)} is not configured for the isolate-javascript backend.`,
+          `Module ${JSON.stringify(specifier)} is not configured for the worker-javascript backend.`,
         );
       }
     }

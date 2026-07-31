@@ -7,7 +7,7 @@
 //   2. Build a fresh Bash around a WorkspaceFsAdapter wrapping
 //      the workspace's fs surface.
 //   3. Run the command and frame the result into the NDJSON
-//      event stream the WorkerBackend's decoder consumes.
+//      event stream the WorkerShellBackend's decoder consumes.
 //
 // No state survives across exec calls. The same workspace stub
 // is fetched per call so concurrent execs can't share an

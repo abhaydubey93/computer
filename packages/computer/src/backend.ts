@@ -28,12 +28,12 @@ export interface WorkspaceBackend {
   // Each concrete backend constructor accepts an `id` option
   // and defaults it to a sensible string when omitted: "test"
   // for TestBackend, "container-shell" for the container
-  // backend, and "isolate-shell" for the worker backend. Single-backend
+  // backend, and "worker-shell" for the worker shell backend. Single-backend
   // setups can ride the default and never touch the field.
   readonly id: string;
 
   // Diagnostic kind of backend, fixed by the implementation
-  // ("test", "cloudflare-container", "worker"). Used for
+  // ("test", "cloudflare-container", "worker-shell"). Used for
   // tracing spans and stub-leak counters; not consumed by
   // Workspace selection logic.
   readonly type: string;

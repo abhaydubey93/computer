@@ -1,5 +1,5 @@
 // ShellWorker — the WorkerEntrypoint a user Worker exposes for
-// the WorkerBackend in @cloudflare/computer to call.
+// the WorkerShellBackend in @cloudflare/computer to call.
 //
 // Each exec call independently reaches the host Workspace
 // through a DurableObjectNamespace binding wired into env by
@@ -127,7 +127,7 @@ export class ShellWorker<
 
   override async fetch(_request: Request): Promise<Response> {
     return new Response(
-      "ShellWorker is invoked over Workers RPC — dispatch through the Workspace's WorkerBackend.",
+      "ShellWorker is invoked over Workers RPC — dispatch through the Workspace's WorkerShellBackend.",
       { status: 426, headers: { "content-type": "text/plain; charset=utf-8" } },
     );
   }

@@ -10,7 +10,7 @@
 // one of them:
 //
 //   import { CloudflareContainerBackend } from "@cloudflare/computer/backends/container";
-//   import { WorkerBackend }              from "@cloudflare/computer/backends/worker";
+//   import { WorkerShellBackend }         from "@cloudflare/computer/backends/worker-shell";
 //
 // TestBackend stays on the main entry because it's a thin
 // test-only fake with no payload.

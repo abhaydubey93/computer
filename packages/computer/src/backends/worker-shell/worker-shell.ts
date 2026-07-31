@@ -1,4 +1,4 @@
-// WorkerBackend — backs Workspace with a just-bash shell that
+// WorkerShellBackend — backs Workspace with a just-bash shell that
 // runs in a Dynamic Worker minted through env.LOADER.
 //
 // The common shape is the one ContainerBackend mirrors: the
@@ -79,7 +79,7 @@ interface DurableObjectCtxWithExports {
   };
 }
 
-export interface WorkerBackendOptions {
+export interface WorkerShellBackendOptions {
   // The Worker Loader binding from env. Required when `fetcher`
   // is omitted; the backend mints the Dynamic Worker through it.
   loader?: WorkerLoaderLike;
@@ -124,7 +124,7 @@ export interface WorkerBackendOptions {
   fetcher?: () => unknown | Promise<unknown>;
 
   // Selector this backend is registered under in Workspace.
-  // Defaults to "isolate-shell"; override when the workspace hosts
+  // Defaults to "worker-shell"; override when the workspace hosts
   // more than one instance of the same backend kind (e.g. two
   // workers on different loaders or with different shell
   // configurations).
@@ -134,13 +134,13 @@ export interface WorkerBackendOptions {
 const DEFAULT_COMPAT_DATE = "2026-06-17";
 const DEFAULT_COMPAT_FLAGS = ["nodejs_compat"];
 
-export class WorkerBackend implements WorkspaceBackend {
-  readonly type = "worker";
+export class WorkerShellBackend implements WorkspaceBackend {
+  readonly type = "worker-shell";
   readonly id: string;
-  readonly #options: WorkerBackendOptions;
+  readonly #options: WorkerShellBackendOptions;
 
-  constructor(options: WorkerBackendOptions) {
-    this.id = options.id ?? "isolate-shell";
+  constructor(options: WorkerShellBackendOptions) {
+    this.id = options.id ?? "worker-shell";
     if (options.fetcher === undefined) {
       if (
         options.loader === undefined ||
@@ -148,7 +148,7 @@ export class WorkerBackend implements WorkspaceBackend {
         options.ctx === undefined
       ) {
         throw new Error(
-          "WorkerBackend: pass either `fetcher` directly or all of " +
+          "WorkerShellBackend: pass either `fetcher` directly or all of " +
             "`loader`, `workspace`, and `ctx` so the backend can " +
             "mint the Dynamic Worker itself.",
         );
@@ -293,7 +293,7 @@ function parseFrame(line: string): ExecEvent {
   try {
     event = JSON.parse(line) as Record<string, unknown>;
   } catch {
-    throw protocolError("WorkerBackend received invalid execution JSON");
+    throw protocolError("WorkerShellBackend received invalid execution JSON");
   }
   if (
     typeof event.id !== "string" ||
@@ -302,7 +302,7 @@ function parseFrame(line: string): ExecEvent {
     ((event.name === "stdout" || event.name === "stderr") && typeof event.value !== "string") ||
     (event.name === "exit" && !Number.isSafeInteger(event.value))
   ) {
-    throw protocolError("WorkerBackend received a malformed execution frame");
+    throw protocolError("WorkerShellBackend received a malformed execution frame");
   }
   return reshape(
     event as {
@@ -350,7 +350,7 @@ function disposeQuietly(value: { [Symbol.dispose]?: () => void }) {
 function noopSync(): SyncRPC {
   const refuse = (name: string): never => {
     throw new Error(
-      `WorkerBackend: sync.${name} must not be called — the handle declares sync: "none"`,
+      `WorkerShellBackend: sync.${name} must not be called — the handle declares sync: "none"`,
     );
   };
   return {
@@ -361,7 +361,7 @@ function noopSync(): SyncRPC {
     fetchObjects: () =>
       new ReadableStream({
         start(c) {
-          c.error(new Error(`WorkerBackend: sync.fetchObjects must not be called`));
+          c.error(new Error(`WorkerShellBackend: sync.fetchObjects must not be called`));
         },
       }),
     pushObjects: () => refuse("pushObjects") as never,
