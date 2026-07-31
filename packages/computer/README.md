@@ -21,20 +21,20 @@ Three backends ship today on tree-shakeable subpaths:
   daemon. Full Linux userland, real binaries, real network. The
   container owns its own SQLite-backed VFS and the package syncs
   the two stores across a capnweb WebSocket.
-- [`@cloudflare/computer/backends/worker`](./src/backends/worker/) —
+- [`@cloudflare/computer/backends/worker-shell`](./src/backends/worker-shell/) —
   runs the shell as [just-bash](https://github.com/vercel-labs/just-bash)
   inside a Dynamic Worker minted through `env.LOADER`. Every
   filesystem operation forwards back to the same Durable Object;
   no second store, no sync round trip. See
   [`docs/12_worker_backend.md`](../../docs/12_worker_backend.md) and
   `examples/worker/`.
-- [`@cloudflare/computer/backends/javascript`](./src/backends/javascript/) —
+- [`@cloudflare/computer/backends/worker-javascript`](./src/backends/worker-javascript/) —
   executes ECMAScript modules in fresh Dynamic Workers with structured
   input/results, durable relative imports, configured libraries, durable
   `node:fs/promises`, and trusted `ws:git` / `ws:artifacts` modules. See
   [`docs/17_isolate_javascript.md`](../../docs/17_isolate_javascript.md).
 
-The isolate-JavaScript backend runs after `runtime.exec()` returns. Pass
+The worker-JavaScript backend runs after `runtime.exec()` returns. Pass
 `waitUntil: ctx.waitUntil.bind(ctx)` to `Workspace` so completion remains
 attached to the Durable Object event. The backend refuses to connect without
 this lifecycle hook. It admits one execution at a time by default and bounds
@@ -121,7 +121,7 @@ Worker backend:
 
 ```ts
 import { Workspace, WorkspaceServiceProxy } from "@cloudflare/computer";
-import { WorkerBackend } from "@cloudflare/computer/backends/worker";
+import { WorkerShellBackend } from "@cloudflare/computer/backends/worker-shell";
 import { DurableObject } from "cloudflare:workers";
 
 export { WorkspaceServiceProxy };
@@ -130,7 +130,7 @@ export class WorkerExample extends DurableObject<Env> {
   #workspace = new Workspace({
     storage: this.ctx.storage,
     backends: [
-      new WorkerBackend({
+      new WorkerShellBackend({
         loader: this.env.LOADER,
         workspace: { binding: "WorkerExample", id: this.ctx.id.toString() },
         ctx: this.ctx,
@@ -218,7 +218,7 @@ an in-shell `artifacts` command. See
 
 A Workspace can carry more than one backend. Each backend
 registers under a stable selector `id` (defaulting to
-`"isolate-shell"`, `"container-shell"`, or `"isolate-javascript"`; this is intentionally separate from the diagnostic `type`).
+`"worker-shell"`, `"container-shell"`, or `"worker-javascript"`; this is intentionally separate from the diagnostic `type`).
 `runtime.exec` picks the default (the first backend in the list)
 unless the caller names one through `WorkspaceRuntimeExecOptions.backend`. Per-backend
 sync cursors live in dofs's `_vfs_watermark` table keyed by
@@ -229,7 +229,7 @@ the other's cursors.
 const workspace = new Workspace({
   storage: ctx.storage,
   backends: [
-    new WorkerBackend({
+    new WorkerShellBackend({
       id: "shell",
       loader: env.LOADER,
       workspace: { binding: "AgentDO", id: ctx.id.toString() },
