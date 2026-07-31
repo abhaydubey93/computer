@@ -242,6 +242,43 @@ describe("Workspace backend selection", () => {
     expect(result).toMatchObject({ status: "completed", exitCode: 0 });
   });
 
+  it("forwards per-execution environment variables to command backends", async () => {
+    let receivedEnv: Record<string, string> | undefined;
+    const shell: import("@cloudflare/computer-rpc").ShellRPC = {
+      async exec(input) {
+        receivedEnv = input.env;
+        const id = input.id ?? "env-command";
+        return {
+          id,
+          events: new ReadableStream({
+            start(controller) {
+              controller.enqueue({ id, seq: 1, name: "exit", value: 0 });
+              controller.close();
+            },
+          }),
+        };
+      },
+      getExec: () => Promise.reject(new Error("not used")),
+      killExec: () => Promise.reject(new Error("not used")),
+      disposeExec: async () => undefined,
+    };
+    const backend: WorkspaceBackend = {
+      id: "command",
+      type: "fake",
+      async connect() {
+        return { rpc: { sync: fakeRpc(), shell }, sync: "none", close: async () => undefined };
+      },
+    };
+    const ws = new Workspace({ storage: makeStorage(), backends: [backend] });
+    await drainExec(
+      await ws.runtime.exec("printenv TOKEN", {
+        backend: "command",
+        env: { TOKEN: "secret", EMPTY: "" },
+      }),
+    );
+    expect(receivedEnv).toEqual({ TOKEN: "secret", EMPTY: "" });
+  });
+
   it("flushes incomplete trailing UTF-8 from command execution", async () => {
     const id = "utf8-command";
     const shell: import("@cloudflare/computer-rpc").ShellRPC = {
@@ -423,6 +460,27 @@ describe("Workspace backend selection", () => {
       { seq: 1.5, name: "stdout", value: "�" },
       { seq: 2, name: "exit", value: 0 },
     ]);
+  });
+
+  it("rejects process environment variables for module backends", async () => {
+    let connected = false;
+    const backend: WorkspaceModuleBackend = {
+      protocol: "module",
+      id: "module",
+      type: "test-module",
+      async connect() {
+        connected = true;
+        throw new Error("module backend should not connect");
+      },
+    };
+    const ws = new Workspace({ storage: makeStorage(), backends: [backend] });
+    await expect(
+      ws.runtime.exec("export default 42", {
+        backend: "module",
+        env: { TOKEN: "secret" },
+      }),
+    ).rejects.toThrow(/does not accept environment variables/);
+    expect(connected).toBe(false);
   });
 
   it("throws on an unknown backend id", async () => {

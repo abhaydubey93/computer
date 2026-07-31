@@ -57,10 +57,14 @@ export class WorkspaceRuntime {
         encoding: options.encoding,
         id: options.id,
         timeoutMs: options.timeoutMs,
+        env: options.env,
       });
       return wrapCommandHandle(handle, backend);
     }
 
+    if (options.env !== undefined) {
+      throw new Error(`Backend ${JSON.stringify(backend)} does not accept environment variables.`);
+    }
     const runtime = await this.#options.moduleHandle(backend);
     const envelope = await runtime.exec({
       id: options.id,

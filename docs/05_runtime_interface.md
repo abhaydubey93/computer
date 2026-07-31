@@ -31,6 +31,7 @@ interface WorkspaceRuntimeExecOptions {
   encoding?: "utf8";
   input?: WorkspaceRuntimeValue;
   timeoutMs?: number;
+  env?: Record<string, string>;
 }
 
 interface WorkspaceRuntimeExecHandle extends ReadableStream<WorkspaceRuntimeEvent> {
@@ -42,7 +43,7 @@ interface WorkspaceRuntimeExecHandle extends ReadableStream<WorkspaceRuntimeEven
 }
 ```
 
-`input` is accepted by structured module backends and rejected by command backends. `cwd` is the command working directory or the base for durable relative module imports. A handle is single-consumer: call `result()` or consume its event stream, not both. Repeated `result()` calls return the same promise. `backend` records the resolved backend needed for later reattachment.
+`input` is accepted by structured module backends and rejected by command backends. `env` is accepted by command backends and rejected by module backends; its values override that command's inherited environment without changing later executions. `cwd` is the command working directory or the base for durable relative module imports. A handle is single-consumer: call `result()` or consume its event stream, not both. Repeated `result()` calls return the same promise. `backend` records the resolved backend needed for later reattachment.
 
 ## Results
 

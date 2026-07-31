@@ -31,7 +31,13 @@ type WireEvent =
   | { id: string; seq: number; name: "exit"; value: number };
 
 interface FakeShellFetcher {
-  exec(input: { command: string; cwd?: string; id?: string; timeoutMs?: number }): Promise<{
+  exec(input: {
+    command: string;
+    cwd?: string;
+    id?: string;
+    timeoutMs?: number;
+    env?: Record<string, string>;
+  }): Promise<{
     id: string;
     events: ReadableStream<Uint8Array>;
   }>;
@@ -58,7 +64,13 @@ function framedStream(events: WireEvent[]): ReadableStream<Uint8Array> {
 }
 
 function fakeFetcher(
-  exec: (input: { command: string; cwd?: string; id?: string; timeoutMs?: number }) => {
+  exec: (input: {
+    command: string;
+    cwd?: string;
+    id?: string;
+    timeoutMs?: number;
+    env?: Record<string, string>;
+  }) => {
     id: string;
     events: ReadableStream<Uint8Array>;
   },
@@ -182,6 +194,26 @@ describe("WorkerBackend", () => {
     await handle.rpc.shell.exec({ command: "x", cwd: "/workspace/src", id: "fixed" });
     expect(observed?.cwd).toBe("/workspace/src");
     expect(observed?.id).toBe("fixed");
+  });
+
+  it("forwards per-execution environment variables to the worker fetcher", async () => {
+    let observedEnv: Record<string, string> | undefined;
+    const fetcher = fakeFetcher((input) => {
+      observedEnv = input.env;
+      return {
+        id: "env",
+        events: framedStream([{ id: "env", seq: 1, name: "exit", value: 0 }]),
+      };
+    });
+    const ws = new Workspace({
+      storage: new SQLiteTestStorage() as never,
+      backends: [new WorkerBackend({ fetcher: () => fetcher })],
+    });
+    const execution = await ws.runtime.exec("printenv TOKEN", {
+      env: { TOKEN: "secret", EMPTY: "" },
+    });
+    await execution.result();
+    expect(observedEnv).toEqual({ TOKEN: "secret", EMPTY: "" });
   });
 
   it("plumbs through Workspace.shell.exec end-to-end", async () => {

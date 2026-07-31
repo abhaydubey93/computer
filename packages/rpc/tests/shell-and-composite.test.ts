@@ -35,6 +35,7 @@ interface ExecRecord {
   id: string;
   command: string;
   cwd?: string;
+  env?: Record<string, string>;
   events: ExecEvent[];
   killed?: { signal: string };
   disposed?: boolean;
@@ -68,6 +69,7 @@ function makeFakeRunner(): FakeRunner {
         id,
         command,
         cwd: options?.cwd,
+        env: options?.env,
         events: [
           {
             id,
@@ -158,7 +160,10 @@ describe("ShellRPC over a real WebSocket", () => {
       // `client.exec(...)` lands on it directly. createWorkspaceClient
       // proxies all property access through; capnweb routes by name.
       // biome-ignore lint/suspicious/noExplicitAny: client targets ShellRPC for this harness, not WorkspaceRPC
-      const handle = await (client as any).exec({ command: "echo hi" });
+      const handle = await (client as any).exec({
+        command: "echo hi",
+        env: { TOKEN: "secret", EMPTY: "" },
+      });
       const events = await drainExec(handle.events);
       expect(events).toHaveLength(2);
       expect(events[0]?.name).toBe("stdout");
@@ -168,6 +173,7 @@ describe("ShellRPC over a real WebSocket", () => {
       // Server-side: the runner saw the call.
       const rec = harness.runner.records.get(handle.id);
       expect(rec?.command).toBe("echo hi");
+      expect(rec?.env).toEqual({ TOKEN: "secret", EMPTY: "" });
     } finally {
       await client.close();
     }

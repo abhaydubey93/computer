@@ -109,6 +109,8 @@ export interface WorkspaceRuntimeExecOptions<E extends ExecEncoding = undefined>
   encoding?: E;
   input?: WorkspaceRuntimeValue;
   timeoutMs?: number;
+  /** Environment variables for command backends. Module backends reject this option. */
+  env?: Record<string, string>;
 }
 
 export interface WorkspaceRuntimeGetOptions<E extends ExecEncoding = undefined> {
