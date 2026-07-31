@@ -1,4 +1,4 @@
-import type { WorkerBackendOptions } from "@cloudflare/computer/backends/worker";
+import type { WorkerShellBackendOptions } from "@cloudflare/computer/backends/worker-shell";
 import type { Sandbox as SandboxDO } from "@cloudflare/sandbox";
 import { getServerByName, routePartykitRequest, Server } from "partyserver";
 import type { RunEvent } from "../shared/events";
@@ -36,7 +36,7 @@ export {
 export interface Env {
   AI: Ai;
   CompareRun: DurableObjectNamespace<CompareRun>;
-  LOADER: WorkerBackendOptions["loader"];
+  LOADER: WorkerShellBackendOptions["loader"];
   SANDBOX_TRANSPORT: "rpc";
   CONTAINER_SLEEP_AFTER?: string;
   WARM_POOL_REFRESH_INTERVAL?: string;

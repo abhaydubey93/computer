@@ -17,7 +17,7 @@ recipes work, just without the container.
 client ─► Worker /c/<name>/{file,exec}
              │  (DO RPC calls)
              ▼
-       DO (ContainerExample) ──► Workspace ──► WorkerBackend
+       DO (ContainerExample) ──► Workspace ──► WorkerShellBackend
                                                     │
                                                     │  env.LOADER.get(...)
                                                     ▼
@@ -30,8 +30,8 @@ client ─► Worker /c/<name>/{file,exec}
                                           back to ContainerExample DO
 ```
 
-1. The DO constructs a `WorkerBackend` from
-   `@cloudflare/computer/backends/worker`, passing the Loader
+1. The DO constructs a `WorkerShellBackend` from
+   `@cloudflare/computer/backends/worker-shell`, passing the Loader
    binding, a `{binding, id}` reference to itself, and `ctx`.
    The backend handles the rest internally: it builds the Loader
    callback (with the code-split shell modules + the seek-bzip
@@ -47,7 +47,7 @@ client ─► Worker /c/<name>/{file,exec}
    survive structured clone into the loader's env; the
    binding-shape Fetcher the proxy produces does.
 3. `ShellWorker` (shipped in
-   `@cloudflare/computer/backends/worker`) lives inside that
+   `@cloudflare/computer/backends/worker-shell`) lives inside that
    Dynamic Worker. Each `exec(input)` calls
    `env.HOST.getWorkspace()`, builds a fresh `Bash` around a
    `WorkspaceFsAdapter` wrapping the stub's `.fs`, runs the
@@ -82,10 +82,10 @@ so the shell can't reach the public internet on its own.
 Identical to the container example. Seed once with:
 
 ```sh
-npm run seed:r2:local --workspace @example/computer-worker
+npm run seed:r2:local --workspace @example/computer-worker-shell
 
 # or after deploy
-npm run seed:r2 --workspace @example/computer-worker
+npm run seed:r2 --workspace @example/computer-worker-shell
 ```
 
 ## HTTP surface
@@ -103,7 +103,7 @@ POST /c/<name>/exec                    { command | argv, cwd?, encoding? }
 
 No Docker, no extra build step. The shell ships as a record of
 pre-bundled modules (`SHELL_MODULES`) inside
-`@cloudflare/computer/backends/worker`; `WorkerBackend` spreads
+`@cloudflare/computer/backends/worker-shell`; `WorkerShellBackend` spreads
 the whole record into the Loader callback internally so the DO
 constructor stays a three-line backend invocation. The entry
 module parses on cold start; the dynamic chunks (python, js-exec,
@@ -111,7 +111,7 @@ sqlite, curl, html-to-markdown) stay cold until a script reaches
 for them.
 
 ```sh
-npm run dev --workspace @example/computer-worker
+npm run dev --workspace @example/computer-worker-shell
 ```
 
 Smoke test (same recipes as the container example):
@@ -138,7 +138,7 @@ examples/worker/
 ```
 
 Nothing else. The Dynamic Worker source ships from
-`@cloudflare/computer/backends/worker` as a pre-built module
+`@cloudflare/computer/backends/worker-shell` as a pre-built module
 string.
 
 ## Known limitations

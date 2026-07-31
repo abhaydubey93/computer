@@ -1,7 +1,7 @@
 // Example Worker + Durable Object that runs a Workspace whose
 // shell is a Dynamic Worker.
 //
-// The DO holds a Workspace whose WorkerBackend dispatches every
+// The DO holds a Workspace whose WorkerShellBackend dispatches every
 // shell.exec into a Dynamic Worker loaded through env.LOADER.
 // The Dynamic Worker reaches the host workspace through a
 // DurableObjectNamespace binding wired into its env, the same
@@ -14,7 +14,7 @@
 //   client ──► Worker /c/<name>/{file,exec}
 //                │  (DO RPC calls)
 //                ▼
-//          ContainerExample DO ──► Workspace ──► WorkerBackend
+//          ContainerExample DO ──► Workspace ──► WorkerShellBackend
 //                                                    │
 //                                                    │  env.LOADER.get(...)
 //                                                    ▼
@@ -35,12 +35,12 @@ import {
   WorkspaceServiceProxy,
   withWorkspace,
 } from "@cloudflare/computer";
-import { WorkerBackend } from "@cloudflare/computer/backends/worker";
+import { WorkerShellBackend } from "@cloudflare/computer/backends/worker-shell";
 
 // Re-export so the runtime can wrap WorkspaceServiceProxy into a
 // loopback Fetcher binding. The DO reaches the wrapped class
 // through ctx.exports.WorkspaceServiceProxy(...) inside the
-// WorkerBackend below.
+// WorkerShellBackend below.
 export { WorkspaceServiceProxy };
 
 // The mixin owns the Workspace and installs the prototype accessor
@@ -56,7 +56,7 @@ export class ContainerExample extends withWorkspace(class extends DurableObject<
     // matches. Cast through unknown to bypass invariance.
     storage: ctx.storage as unknown as DurableObjectStorageLike,
     backends: [
-      new WorkerBackend({
+      new WorkerShellBackend({
         loader: env.LOADER,
         workspace: { binding: "ContainerExample", id: ctx.id.toString() },
         ctx,

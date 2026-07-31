@@ -18,7 +18,10 @@ import {
   WorkspaceServiceProxy,
   withWorkspace,
 } from "@cloudflare/computer";
-import { WorkerBackend, type WorkerBackendOptions } from "@cloudflare/computer/backends/worker";
+import {
+  WorkerShellBackend,
+  type WorkerShellBackendOptions,
+} from "@cloudflare/computer/backends/worker-shell";
 
 export { WorkspaceServiceProxy };
 
@@ -55,8 +58,8 @@ const SHARE_TOKEN_TTL = "24h";
 // `self.env`.
 export class ArtifactCreator extends withWorkspace(class extends DurableObject<Env> {}, (self) => {
   const { ctx, env } = self as unknown as { ctx: DurableObjectState; env: Env };
-  const workerBackendOptions: WorkerBackendOptions = {
-    loader: env.LOADER as unknown as WorkerBackendOptions["loader"],
+  const workerShellBackendOptions: WorkerShellBackendOptions = {
+    loader: env.LOADER as unknown as WorkerShellBackendOptions["loader"],
     workspace: { binding: "ArtifactCreator", id: ctx.id.toString() },
     ctx,
   };
@@ -64,7 +67,7 @@ export class ArtifactCreator extends withWorkspace(class extends DurableObject<E
     storage: ctx.storage as unknown as DurableObjectStorageLike,
     sessionId: ctx.id.toString(),
     artifacts: { binding: env.ARTIFACTS },
-    backends: [new WorkerBackend(workerBackendOptions)],
+    backends: [new WorkerShellBackend(workerShellBackendOptions)],
   };
 }) {}
 

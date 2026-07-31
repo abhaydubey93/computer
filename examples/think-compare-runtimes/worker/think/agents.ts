@@ -6,7 +6,10 @@ import {
   type WorkspaceStub,
 } from "@cloudflare/computer";
 import { CloudflareContainerBackend } from "@cloudflare/computer/backends/container";
-import { WorkerBackend, type WorkerBackendOptions } from "@cloudflare/computer/backends/worker";
+import {
+  WorkerShellBackend,
+  type WorkerShellBackendOptions,
+} from "@cloudflare/computer/backends/worker-shell";
 import { getSandbox, type Sandbox as SandboxDO } from "@cloudflare/sandbox";
 import { type ChunkContext, type StepContext, Think } from "@cloudflare/think";
 import type { ToolSet } from "ai";
@@ -54,7 +57,7 @@ export interface RuntimeThinkAgentEnv {
   WorkspaceWarmPool: ContainerWarmPoolNamespace;
   CONTAINER_SLEEP_AFTER?: string;
   FUSE_MOUNT?: string;
-  LOADER: WorkerBackendOptions["loader"];
+  LOADER: WorkerShellBackendOptions["loader"];
   WARM_POOL_RESET_KEY?: string;
 }
 
@@ -332,7 +335,7 @@ export class WorkspaceThinkAgent extends RuntimeThinkAgent {
     const workspace = new Workspace({
       storage: this.#ctx.storage as unknown as DurableObjectStorageLike,
       backends: [
-        new WorkerBackend({
+        new WorkerShellBackend({
           id: "shell",
           loader: this.env.LOADER,
           workspace: workspaceRef,

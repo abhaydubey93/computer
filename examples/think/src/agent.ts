@@ -14,7 +14,7 @@
  *   - `Think` (via the Durable Object base) hands us the message
  *     store, agentic loop, and chat protocol.
  *   - We own a `@cloudflare/computer.Workspace` with two backends:
- *     a WorkerBackend (`"shell"`) for fast just-bash text tooling and
+ *     a WorkerShellBackend (`"shell"`) for fast just-bash text tooling and
  *     a CloudflareContainerBackend (`"container"`) for full Linux
  *     userland through computerd. This mirrors examples/container while
  *     keeping the chat surface unchanged.
@@ -36,14 +36,14 @@ import {
   CloudflareContainerBackend,
   withWorkspaceContainer,
 } from "@cloudflare/computer/backends/container";
-import { WorkerBackend } from "@cloudflare/computer/backends/worker";
+import { WorkerShellBackend } from "@cloudflare/computer/backends/worker-shell";
 import { createAITools } from "@cloudflare/computer/tools";
 import { Think } from "@cloudflare/think";
 import type { ToolSet } from "ai";
 import { createWorkersAI } from "workers-ai-provider";
 
 // Re-export so the runtime can build loopback bindings. The
-// WorkerBackend reaches WorkspaceServiceProxy through
+// WorkerShellBackend reaches WorkspaceServiceProxy through
 // `ctx.exports.WorkspaceServiceProxy(...)` so the in-isolate shell
 // can call back into the host workspace. WorkspaceProxy carries the
 // container's outbound /ws egress back to this DO.
@@ -91,7 +91,7 @@ export class Assistant extends withWorkspaceContainer(AssistantBase) {
   override workspace = new Workspace({
     storage: this.ctx.storage as unknown as DurableObjectStorageLike,
     backends: [
-      new WorkerBackend({
+      new WorkerShellBackend({
         id: "shell",
         loader: this.env.LOADER,
         workspace: workspaceRef(this.ctx),

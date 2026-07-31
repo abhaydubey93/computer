@@ -74,8 +74,8 @@ vi.mock("@cloudflare/computer/backends/container", () => ({
   },
 }));
 
-vi.mock("@cloudflare/computer/backends/worker", () => ({
-  WorkerBackend: class {
+vi.mock("@cloudflare/computer/backends/worker-shell", () => ({
+  WorkerShellBackend: class {
     readonly id: string;
 
     constructor(options: Record<string, unknown>) {

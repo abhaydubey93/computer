@@ -6,13 +6,13 @@
   // name, same routes, same R2 mount. The only difference is the
   // shell: a Dynamic Worker instead of a container running computerd.
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "computer-worker-example",
+  "name": "computer-worker-shell-example",
   "main": "src/index.ts",
   "compatibility_date": "2026-05-26",
   "compatibility_flags": ["nodejs_compat", "experimental"],
 
   // Worker Loader binding. The DO calls env.LOADER.get(id, ...)
-  // to mint a Dynamic Worker that the WorkerBackend then
+  // to mint a Dynamic Worker that the WorkerShellBackend then
   // dispatches shell.exec into.
   "worker_loaders": [
     {
@@ -31,12 +31,12 @@
 
   // R2 bucket mounted into every Workspace at /workspace/r2 via
   // R2Bucket(...). Seed it once with:
-  //   npm run seed:r2 --workspace @example/computer-worker
+  //   npm run seed:r2 --workspace @example/computer-worker-shell
   // which uploads ./seed/data/hello.txt to the bucket.
   "r2_buckets": [
     {
       "binding": "Bucket",
-      "bucket_name": "computer-worker-hello"
+      "bucket_name": "computer-worker-shell-hello"
     }
   ],
 
