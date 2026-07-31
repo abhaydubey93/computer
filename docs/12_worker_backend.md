@@ -2,7 +2,7 @@
 
 > [!NOTE]
 > This doc reflects shipped code in
-> `packages/computer/src/backends/worker/`. The example deployment
+> `packages/computer/src/backends/worker-shell/`. The example deployment
 > lives at `examples/worker/`.
 
 The worker backend is the second `WorkspaceBackend` shape the
@@ -17,7 +17,7 @@ Import via the sub-path so the bundled just-bash payload tree-shakes
 out of consumers that don't use it:
 
 ```ts
-import { WorkerBackend } from "@cloudflare/computer/backends/worker";
+import { WorkerShellBackend } from "@cloudflare/computer/backends/worker-shell";
 ```
 
 ## When to reach for it
@@ -32,7 +32,7 @@ isolate that boots instantly, scales out cheaply, and has no
 container lifecycle. The shell is the just-bash interpreter; the
 supported command set is broad (`cat`, `grep`, `awk`, `sed`, `jq`,
 `sort`) but not the full Linux userland. JavaScript modules run through the
-[`isolate-javascript` backend](./17_isolate_javascript.md), not through just-bash's
+[`worker-javascript` backend](./17_isolate_javascript.md), not through just-bash's
 Node-only language commands. Filesystem operations forward into the same
 SQLite store as the container backend, so the storage shape, mount
 rules, and read-only enforcement are unchanged.
@@ -55,7 +55,7 @@ Reach for the container backend when the agent runs `npm`, a real language runti
 agent code
   │  Workers RPC
   ▼
-host DO ─── Workspace ─── WorkerBackend
+host DO ─── Workspace ─── WorkerShellBackend
                               │
                               │  env.LOADER.get(loaderId, codeCallback)
                               │    .getEntrypoint("ShellWorker")
@@ -158,7 +158,7 @@ they already handle.
 
 ## Fetcher factory escape hatch
 
-`WorkerBackend` is source-agnostic. The common case takes
+`WorkerShellBackend` is source-agnostic. The common case takes
 `{ loader, workspace, ctx }` and builds the loader callback
 itself. For deployments that need a different Fetcher source — a
 Workers service binding, a Workers-for-Platforms dispatch
@@ -219,7 +219,7 @@ export class MyAgent extends DurableObject<Env> {
       storage: ctx.storage,
       sessionId: ctx.id.toString(),
       artifacts: { binding: env.ARTIFACTS },
-      backends: [new WorkerBackend(/* ... */)],
+      backends: [new WorkerShellBackend(/* ... */)],
     });
   }
 }
@@ -250,7 +250,7 @@ network-bound `git` subcommands do. See
   `/c/<name>/file/...` and `/c/<name>/exec` routes the container
   example also exposes).
 - No Dockerfile, no build script. The shell bundle ships with
-  `@cloudflare/computer/backends/worker` as `SHELL_MODULES`
+  `@cloudflare/computer/backends/worker-shell` as `SHELL_MODULES`
   (a record of module name → source covering the entry plus
   every code-split chunk); the backend hands the whole record
   to the Loader callback itself.
@@ -258,7 +258,7 @@ network-bound `git` subcommands do. See
 The DO's backend wiring fits in three lines:
 
 ```ts
-new WorkerBackend({
+new WorkerShellBackend({
   loader: env.LOADER,
   workspace: { binding: "ContainerExample", id: ctx.id.toString() },
   ctx,

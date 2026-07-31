@@ -62,13 +62,13 @@ interface WorkspaceRuntimeResult {
 }
 ```
 
-Command backends leave `value` unset. `isolate-javascript` uses `value` for the module's structured return value and reports a zero-entry completed sync. A command can complete while its post-command pull fails; in that case `sync.status` is `"pending"`, and a configured `SyncRetryScheduler` can durably retry the pull without rerunning the command.
+Command backends leave `value` unset. `worker-javascript` uses `value` for the module's structured return value and reports a zero-entry completed sync. A command can complete while its post-command pull fails; in that case `sync.status` is `"pending"`, and a configured `SyncRetryScheduler` can durably retry the pull without rerunning the command.
 
 ## Backend routing
 
 ```ts
 await workspace.runtime.exec("grep -R TODO .", {
-  backend: "isolate-shell",
+  backend: "worker-shell",
 });
 
 await workspace.runtime.exec("npm test", {
@@ -80,7 +80,7 @@ await workspace.runtime.exec(
     import fs from "node:fs/promises";
     export default async () => fs.readFile("/workspace/package.json", "utf8");
   `,
-  { backend: "isolate-javascript" },
+  { backend: "worker-javascript" },
 );
 ```
 
@@ -94,7 +94,7 @@ Command backends continue to use the existing synchronization bracket:
 push → spawn → events/result → pull
 ```
 
-A backend with `sync: "none"`, such as `isolate-shell`, shares the host store and reports zero push/pull counts. A Container has its own VFS and synchronizes changes before and after command execution. Fully draining either `result()` or the event stream completes the post-command pull before the stream closes.
+A backend with `sync: "none"`, such as `worker-shell`, shares the host store and reports zero push/pull counts. A Container has its own VFS and synchronizes changes before and after command execution. Fully draining either `result()` or the event stream completes the post-command pull before the stream closes.
 
 Module backends use host capability calls against the authoritative Workspace and therefore require no push/pull round trip.
 
@@ -102,8 +102,8 @@ Module backends use host capability calls against the authoritative Workspace an
 
 `container-shell` provides computerd's retained process log, replay, signals, and disposal.
 
-`isolate-javascript` provides a Workspace-owned execution journal, retained result/events, host cancellation, and explicit disposal. Active Workers cannot be serialized across host restart; orphaned running records are reconciled to failed.
+`worker-javascript` provides a Workspace-owned execution journal, retained result/events, host cancellation, and explicit disposal. Active Workers cannot be serialized across host restart; orphaned running records are reconciled to failed.
 
-`isolate-shell` intentionally preserves one-call, buffered-result behavior in this release. It does not retain executions for later reattachment or disposal. `timeoutMs` and a concurrent `killExec()` for a caller-supplied execution ID cooperatively abort just-bash at statement boundaries; by the time an ordinary `exec()` promise returns, the command has already settled. Use the Container or JavaScript isolate when detached execution and retained lifecycle are required.
+`worker-shell` intentionally preserves one-call, buffered-result behavior in this release. It does not retain executions for later reattachment or disposal. `timeoutMs` and a concurrent `killExec()` for a caller-supplied execution ID cooperatively abort just-bash at statement boundaries; by the time an ordinary `exec()` promise returns, the command has already settled. Use the Container or JavaScript isolate when detached execution and retained lifecycle are required.
 
 See [16. Execution runtime architecture](./16_code_execution.md) and [17. Isolate JavaScript](./17_isolate_javascript.md).

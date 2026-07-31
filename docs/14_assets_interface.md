@@ -34,7 +34,7 @@ client when constructing the `Workspace`:
 ```ts
 const ws = new Workspace({
   storage: ctx.storage,
-  backends: [new WorkerBackend(/* ... */)],
+  backends: [new WorkerShellBackend(/* ... */)],
   assets: (ws) => createAssets({ ws, bucket: env.ASSETS, s3: { bucket: "agent-assets" }, env }),
 });
 ```

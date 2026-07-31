@@ -55,7 +55,7 @@ When assigning the same instance to `Think.workspace`, construct it with `useThi
 const workspace = new Workspace({
   storage: ctx.storage,
   backends: [
-    new WorkerBackend({ id: "shell", /* ... */ }),
+    new WorkerShellBackend({ id: "shell", /* ... */ }),
     new CloudflareContainerBackend({ id: "container", /* ... */ }),
   ],
 });

@@ -1,16 +1,16 @@
 # Isolate JavaScript runtime
 
-`IsolateJavaScriptBackend` runs an ECMAScript module in a fresh Cloudflare Dynamic Worker:
+`WorkerJavaScriptBackend` runs an ECMAScript module in a fresh Cloudflare Dynamic Worker:
 
 ```ts
 import { Workspace } from "@cloudflare/computer";
-import { IsolateJavaScriptBackend } from "@cloudflare/computer/backends/javascript";
+import { WorkerJavaScriptBackend } from "@cloudflare/computer/backends/worker-javascript";
 
 const workspace = new Workspace({
   storage: ctx.storage,
   waitUntil: ctx.waitUntil.bind(ctx),
   backends: [
-    new IsolateJavaScriptBackend({
+    new WorkerJavaScriptBackend({
       loader: env.LOADER,
       root: "/workspace",
       access: "read-write",
@@ -40,7 +40,7 @@ const handle = await workspace.runtime.exec(
     }
   `,
   {
-    backend: "isolate-javascript",
+    backend: "worker-javascript",
     input: { value: 21 },
     encoding: "utf8",
   },
@@ -70,7 +70,7 @@ await workspace.fs.writeFile(
 await workspace.runtime.exec(
   `import task from "./task.js"; export default task;`,
   {
-    backend: "isolate-javascript",
+    backend: "worker-javascript",
     cwd: "/workspace",
     input: { value: 42 },
   },
@@ -96,7 +96,7 @@ Host calls have a caller-visible deadline, controlled by `maxHostCallMs` and def
 Bare imports are installed at backend construction, not passed on individual executions:
 
 ```ts
-new IsolateJavaScriptBackend({
+new WorkerJavaScriptBackend({
   loader: env.LOADER,
   modules: {
     "tar-stream": TAR_STREAM_BUNDLE,
@@ -165,4 +165,4 @@ Console output is bounded but currently buffered in the Dynamic Worker and publi
 
 ## Trusted integrations
 
-A host can configure additional reserved capability modules through `IsolateJavaScriptBackend.trustedModules`; these modules are fixed when the backend is constructed and cannot be supplied or replaced by caller source.
+A host can configure additional reserved capability modules through `WorkerJavaScriptBackend.trustedModules`; these modules are fixed when the backend is constructed and cannot be supplied or replaced by caller source.

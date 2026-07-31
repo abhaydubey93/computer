@@ -199,7 +199,7 @@ Runnable examples live at the repo root, not inside any package:
 ```
 examples/
 ├── container/        # Reference container image for computerd
-├── worker/           # WorkerBackend example
+├── worker-shell/     # WorkerShellBackend example
 ├── code/             # workspace.runtime with Worker and Container shells
 └── think/            # @cloudflare/think integration
 ```
@@ -210,7 +210,7 @@ so each example can declare its own dependencies and scripts.
 ## Testing
 
 - **Unit tests live next to source.** Packages follow the `foo.ts` + `foo.test.ts` convention.
-- **Workerd integration tests** for WorkerBackend, Workspace RPC, and `workspace.runtime` live in `packages/computer/tests/` with dedicated Vitest and Wrangler configuration.
+- **Workerd integration tests** for WorkerShellBackend, Workspace RPC, and `workspace.runtime` live in `packages/computer/tests/` with dedicated Vitest and Wrangler configuration.
 - **Container and load harness tests** live in `packages/computer/test-harness/`:
   - `end-to-end.test.ts` — DO ↔ container round-trip
   - `shell.test.ts` — shell surface against a real backend

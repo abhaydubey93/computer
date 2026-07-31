@@ -3,7 +3,7 @@
 > [!NOTE]
 > This doc describes shipped code in `packages/computer/src/git/`
 > and the `git` custom command in
-> `packages/computer/src/backends/worker/`. Everything below
+> `packages/computer/src/backends/worker-shell/`. Everything below
 > works today.
 
 `workspace.git` is a major typed surface on `Workspace`, alongside `fs`, `runtime`, Assets, and Artifacts. It is opt-in: pass `createGitClient()` from `@cloudflare/computer/git` as `WorkspaceOptions.git` to enable it. Git runs every operation against the local SQLite-backed VFS through `isomorphic-git`, so a
@@ -1068,7 +1068,7 @@ commands receive the live host stub the shell already reached,
 so they share its lifetime without refetching.
 
 ```ts
-import { ShellWorker, defineGitCommand } from "@cloudflare/computer/backends/worker";
+import { ShellWorker, defineGitCommand } from "@cloudflare/computer/backends/worker-shell";
 import { type CustomCommand } from "just-bash";
 
 class MyShell extends ShellWorker {

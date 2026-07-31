@@ -3,7 +3,7 @@
 > [!NOTE]
 > This doc describes shipped code in
 > `packages/computer/src/artifacts/` and the `artifacts` custom
-> command in `packages/computer/src/backends/worker/`.
+> command in `packages/computer/src/backends/worker-shell/`.
 
 [Cloudflare Artifacts](https://developers.cloudflare.com/artifacts/)
 is versioned, Git-speaking repository storage. A Worker reaches it
@@ -250,7 +250,7 @@ export class MyAgent extends DurableObject<Env> {
       storage: ctx.storage,
       sessionId: ctx.id.toString(),
       artifacts: { binding: env.ARTIFACTS },
-      backends: [new WorkerBackend(/* ... */)],
+      backends: [new WorkerShellBackend(/* ... */)],
     });
   }
 }
