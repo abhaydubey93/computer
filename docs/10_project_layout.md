@@ -58,8 +58,8 @@ packages/computer/
 │   ├── backend.ts                   # Command backend interface
 │   ├── backends/
 │   │   ├── container/               # Cloudflare Container + computerd backend
-│   │   ├── worker/                  # Dynamic Worker + just-bash backend
-│   │   ├── javascript/              # Dynamic Worker ECMAScript backend
+│   │   ├── worker-shell/            # Dynamic Worker + just-bash shell backend
+│   │   ├── worker-javascript/       # Dynamic Worker ECMAScript module backend
 │   │   └── test.ts                  # In-process test backend
 │   ├── proxy.ts                     # WorkspaceProxy
 │   ├── proxy-stub.ts                # Client-side stub plumbing

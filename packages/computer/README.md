@@ -27,7 +27,7 @@ Three backends ship today on tree-shakeable subpaths:
   filesystem operation forwards back to the same Durable Object;
   no second store, no sync round trip. See
   [`docs/12_worker_backend.md`](../../docs/12_worker_backend.md) and
-  `examples/worker/`.
+  `examples/worker-shell/`.
 - [`@cloudflare/computer/backends/worker-javascript`](./src/backends/worker-javascript/) —
   executes ECMAScript modules in fresh Dynamic Workers with structured
   input/results, durable relative imports, configured libraries, durable

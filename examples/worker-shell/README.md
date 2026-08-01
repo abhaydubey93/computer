@@ -1,4 +1,4 @@
-# worker example
+# worker-shell example
 
 > [!IMPORTANT]
 > **PREVIEW ONLY** This package is provided as a preview for feedback only.
@@ -132,7 +132,7 @@ curl -X POST http://127.0.0.1:8787/c/demo/exec \
 ## Layout
 
 ```
-examples/worker/
+examples/worker-shell/
   wrangler.jsonc    Worker + DO + worker_loaders binding
   src/index.ts      Worker handler + DO (ContainerExample)
 ```

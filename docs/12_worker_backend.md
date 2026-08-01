@@ -3,7 +3,7 @@
 > [!NOTE]
 > This doc reflects shipped code in
 > `packages/computer/src/backends/worker-shell/`. The example deployment
-> lives at `examples/worker/`.
+> lives at `examples/worker-shell/`.
 
 The worker backend is the second `WorkspaceBackend` shape the
 package ships. It pairs a Workspace with a
@@ -241,7 +241,7 @@ network-bound `git` subcommands do. See
 
 ## Example
 
-`examples/worker/` is a single wrangler project that mirrors
+`examples/worker-shell/` is a single wrangler project that mirrors
 `examples/container/` beat for beat:
 
 - One `wrangler.jsonc` with the Durable Object, an R2 mount at
