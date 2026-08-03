@@ -63,6 +63,13 @@ export interface SyncRetryScheduler {
   clear(backend: string): Promise<void>;
 }
 
+export interface WorkspacePullOptions {
+  // Whether this pull may write to the local store. Defaults to true.
+  // A pull without write access applies nothing and reports every
+  // entry it was offered as skipped.
+  writable?: boolean;
+}
+
 export interface SyncRetryOptions {
   initialDelayMs?: number;
   maxDelayMs?: number;
@@ -626,8 +633,15 @@ export class Workspace {
     );
   }
 
-  pull(id?: string): Promise<ApplyResult> {
-    return this.#serialize(id, (resolvedId) => this.#pullResolved(resolvedId));
+  // `writable: false` pulls without write access: nothing is
+  // applied and every entry comes back in `skipped`. This is how a
+  // command that ran without write access has its changes refused
+  // when the backend keeps its own copy of the files and wrote to
+  // that copy before we heard about it.
+  pull(id?: string, options?: WorkspacePullOptions): Promise<ApplyResult> {
+    return this.#serialize(id, (resolvedId) =>
+      this.#pullResolved(resolvedId, options?.writable ?? true),
+    );
   }
 
   /**
@@ -658,7 +672,7 @@ export class Workspace {
         };
       }
       try {
-        const result = await this.#pullResolved(resolvedId);
+        const result = await this.#pullResolved(resolvedId, true);
         await scheduler.clear(resolvedId);
         return {
           status: "complete",
@@ -683,11 +697,11 @@ export class Workspace {
     });
   }
 
-  #pullResolved(resolvedId: string | undefined): Promise<ApplyResult> {
+  #pullResolved(resolvedId: string | undefined, writable: boolean): Promise<ApplyResult> {
     return withSpan(
       this.#observer,
       "workspace.sync.pull",
-      { "workspace.sync.backend": resolvedId },
+      { "workspace.sync.backend": resolvedId, "workspace.sync.writable": writable },
       async () => {
         if (resolvedId === undefined || this.#moduleBackendsById.has(resolvedId)) {
           return { applied: 0, skipped: [] };
@@ -695,7 +709,7 @@ export class Workspace {
         const handle = await this.#handleFor(resolvedId);
         if (handle.sync === "none") return { applied: 0, skipped: [] };
         return this.#runWithInvalidation(resolvedId, handle, () =>
-          pullOnce(this.#db, handle.rpc.sync, resolvedId),
+          pullOnce(this.#db, handle.rpc.sync, resolvedId, { writable }),
         );
       },
       (span, outcome) => {
@@ -973,10 +987,11 @@ export class Workspace {
       handle.rpc.shell,
       {
         push: () => this.push(id),
-        pull: () => this.pull(id),
+        pull: (options) => this.pull(id, options),
         onPullPending: () => this.#schedulePendingSync(id),
       },
       this.#observer,
+      { gate: this.#gate, audit: this.#audit },
     );
     this.#shells.set(id, shell);
     return { shell, handle };
@@ -1072,12 +1087,19 @@ class WorkspaceShellRouter {
     // swapped in a newer handle that we must not clobber.
     const { shell, handle: dispatchHandle } = await this.#shellFor(id);
     const { backend: _backend, ...rest } = options;
+    // The caller's selector is replaced with the id it resolved to,
+    // rather than dropped. The per-backend shell does not need it to
+    // route — it is already the right shell — but the gate is handed
+    // this and a gate deciding whether to trust a command with write
+    // access wants to know which backend will run it, since that is
+    // what determines whether a refused write is prevented or merely
+    // reported.
+    const forwarded = { ...rest, backend: id };
     let execHandle: unknown;
     try {
-      execHandle = await (shell.exec as unknown as (c: string, o: typeof rest) => Promise<unknown>)(
-        command,
-        rest,
-      );
+      execHandle = await (
+        shell.exec as unknown as (c: string, o: typeof forwarded) => Promise<unknown>
+      )(command, forwarded);
     } catch (error) {
       this.#onError(id, dispatchHandle, error);
       throw error;
