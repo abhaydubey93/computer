@@ -16,7 +16,7 @@ import {
   type DurableObjectStorageLike,
   initializeSchema,
   SQLiteWorkspaceProvider,
-  type WorkspaceFilesystem,
+  WorkspaceFilesystem,
 } from "@cloudflare/dofs";
 
 import {
@@ -42,7 +42,7 @@ import {
   type WorkspaceRegisteredBackend,
 } from "./runtime/types.js";
 import { WorkspaceShell } from "./shell.js";
-import { WorkspaceStub } from "./stub.js";
+import { WorkspaceStub, type WorkspaceStubOptions } from "./stub.js";
 import { isWorkspaceTransportFailure } from "./transport-failure.js";
 
 export interface SyncRetryIntent {
@@ -244,6 +244,7 @@ export class Workspace {
   readonly #observer: WorkspaceObserver;
   readonly #gate: WorkspaceGate;
   readonly #audit: WorkspaceAudit;
+  #readOnlyFs: WorkspaceFilesystem | undefined;
   readonly #now: () => number;
   readonly #waitUntil: ((promise: Promise<unknown>) => void) | undefined;
   readonly #retryScheduler: SyncRetryScheduler | undefined;
@@ -581,8 +582,31 @@ export class Workspace {
   // across the Workers-RPC boundary (e.g. returned from a DO RPC
   // method). The stub is a lazy RpcTarget — it doesn't own any
   // resources itself; it just delegates back to this workspace.
-  stub(): WorkspaceStub {
-    return new WorkspaceStub(this);
+  stub(options?: WorkspaceStubOptions): WorkspaceStub {
+    return new WorkspaceStub(this, options);
+  }
+
+  // Filesystem handle for a given write access. The writable case is
+  // the workspace's own gated handle; the read-only case is a second
+  // handle over the same store built without the capability.
+  //
+  // Two handles over one database is the point: commands overlap, and
+  // a read-only one must not be able to disarm a writable one running
+  // beside it. The capability lives on the handle for exactly that
+  // reason — it cannot be a property of the database without one
+  // command's access leaking into another's. It also cannot be a
+  // second Database, because dofs assumes exactly one Database wraps
+  // each SqlStorage and its resolve cache depends on that.
+  //
+  // The read-only handle is built once and shared. It holds no
+  // per-command state, and every caller wants the same thing from it.
+  fsWithAccess(writable: boolean): WorkspaceFilesystem {
+    if (writable) return this.#fs;
+    this.#readOnlyFs ??= new WorkspaceFilesystem(this.#db, {
+      now: this.#now,
+      writable: false,
+    });
+    return this.#readOnlyFs;
   }
 
   // Sync the local store with a configured backend.
