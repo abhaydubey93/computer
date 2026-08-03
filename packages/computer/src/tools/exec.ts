@@ -5,7 +5,7 @@ export interface ExecWorkspaceLike {
   runtime: {
     exec(
       command: string,
-      options: { cwd?: string; encoding: "utf8"; backend?: string },
+      options: { cwd?: string; encoding: "utf8"; backend?: string; writable?: boolean },
     ): Promise<{
       result(): Promise<{
         exitCode: number;
@@ -20,11 +20,33 @@ export interface ExecBackendDescription {
   description: string;
 }
 
+export interface ExecToolInput {
+  command: string;
+  cwd?: string;
+  backend: string;
+}
+
 export interface ExecToolOptions {
   workspace: ExecWorkspaceLike;
   backends: Record<string, ExecBackendDescription>;
   defaultBackend: string;
   maxBytes?: number;
+
+  // Decides whether a command may modify the workspace. Omit to let
+  // every command write, which is the behaviour without this option.
+  //
+  // Deliberately not part of the input schema, so the model cannot
+  // set it. A model that classifies its own command is the failure
+  // this is meant to catch: the whole point is the command mislabelled
+  // as read-only, and asking the same model that mislabelled it to
+  // declare the label would make the flag agree with the mistake. The
+  // host decides — from an allowlist, a plan step, a human, whatever
+  // it already trusts — and the model finds out by the write failing.
+  //
+  // The classification is still allowed to be wrong. It fails safe in
+  // that direction: a read command marked read-only runs fine, and a
+  // write command marked read-only fails visibly instead of writing.
+  writable?: (input: ExecToolInput) => boolean;
 }
 
 const DEFAULT_MAX_BYTES = 64 * 1024;
@@ -77,26 +99,38 @@ export function createExecTool(
     }),
     execute: async ({ command, cwd, backend }) => {
       const selectedBackend = backend ?? options.defaultBackend;
+      const writable = options.writable?.({ command, cwd, backend: selectedBackend }) ?? true;
       try {
         const handle = await options.workspace.runtime.exec(command, {
           cwd,
           encoding: "utf8",
           backend: selectedBackend,
+          writable,
         });
         const result = await handle.result();
         return {
           command,
           cwd: cwd ?? null,
           backend: selectedBackend,
+          // Reported so the model can tell a refused write from a
+          // broken command. Without it a read-only run looks like an
+          // arbitrary failure and the model's next move is to retry
+          // the same command.
+          writable,
           exitCode: result.exitCode,
           stdout: truncate(result.stdout, maxBytes),
           stderr: truncate(result.stderr, maxBytes),
         };
       } catch (err) {
+        // A gate refusing the command arrives here. It is returned as
+        // a tool result rather than thrown, like every other failure,
+        // so the model reads the refusal and can respond to it instead
+        // of the agent loop tearing down.
         return {
           command,
           cwd: cwd ?? null,
           backend: selectedBackend,
+          writable,
           error: err instanceof Error ? err.message : String(err),
         };
       }
