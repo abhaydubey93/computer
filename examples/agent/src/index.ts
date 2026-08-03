@@ -49,6 +49,17 @@ import {
 } from "@cloudflare/computer/backends/container";
 import { WorkerJavaScriptBackend } from "@cloudflare/computer/backends/worker-javascript";
 import { WorkerShellBackend } from "@cloudflare/computer/backends/worker-shell";
+import { convertToModelMessages, stepCountIs, streamText, type UIMessage } from "ai";
+import { createWorkersAI } from "workers-ai-provider";
+
+import {
+  createAgentTools,
+  createApprovalGate,
+  createAudit,
+  DEFAULT_BACKEND,
+  execApproval,
+  SYSTEM_PROMPT,
+} from "./agent.js";
 
 // Re-exported so the runtime can wrap each class into a loopback
 // binding: the container backend reaches the DO through
@@ -66,6 +77,15 @@ class AgentBase extends withWorkspaceContainer(class extends DurableObject<Env> 
   readonly container_backend: CloudflareContainerBackend = new CloudflareContainerBackend({
     container: () => this,
     workspace: { binding: "AgentExample", id: this.ctx.id.toString() },
+  });
+
+  // Held as a field so the /audit route can read the trail back out.
+  // A real host would ship these somewhere durable; the ring buffer is
+  // here to be read while the example runs.
+  readonly audit = createAudit({
+    sink: (record) => {
+      console.log(JSON.stringify({ audit: record }));
+    },
   });
 }
 
@@ -112,15 +132,83 @@ function workspaceOptions(self: InstanceType<typeof AgentBase>): WorkspaceOption
     // backend runs under just-bash: the one of the three that
     // refuses a withheld write outright.
     backends,
+    // Both seams are installed on the Workspace rather than around the
+    // agent, which is the point of them being here: they cover the
+    // HTTP routes below and anything added later, not only the model's
+    // path through the tools.
+    gate: createApprovalGate(),
+    audit: self.audit,
   };
 }
 
 export class AgentExample extends withWorkspace(AgentBase, workspaceOptions) {
-  // computerd dials back with a /ws upgrade; hand it to the backend.
+  // computerd dials back with a /ws upgrade; everything else on this
+  // door is the agent, whose response is a stream and so cannot come
+  // back over an RPC method.
   override async fetch(request: Request): Promise<Response> {
-    return this.container_backend.handleFetch(request);
+    const url = new URL(request.url);
+    if (url.pathname === "/ws") return this.container_backend.handleFetch(request);
+    if (url.pathname === "/agent") return this.#agent(request);
+    if (url.pathname === "/audit") return json(this.audit.records());
+    return new Response("not found", { status: 404 });
+  }
+
+  async #agent(request: Request): Promise<Response> {
+    let body: { messages?: UIMessage[] };
+    try {
+      body = (await request.json()) as { messages?: UIMessage[] };
+    } catch {
+      return json({ error: "invalid JSON body" }, 400);
+    }
+    const messages = body.messages ?? [];
+
+    // getWorkspace(this) takes the local path: no RPC, and it awaits
+    // ready() on the way through.
+    const workspace = await getWorkspace(this);
+    const workersai = createWorkersAI({ binding: this.env.AI });
+
+    const result = streamText({
+      model: workersai(MODEL_ID),
+      system: SYSTEM_PROMPT,
+      messages: await convertToModelMessages(messages),
+      tools: createAgentTools({ workspace }),
+      // Approval is decided here rather than on the tool, which is
+      // where the AI SDK moved it: the tool-level `needsApproval`
+      // option is deprecated in v7.
+      toolApproval: { exec: execApproval() },
+      // The conversation lives on the client, so an approval reaches
+      // this Worker as a claim the client makes about a decision the
+      // user supposedly took. Signing the request when it is issued
+      // and checking the signature when it comes back is what stops a
+      // client from writing itself an approval for a command nobody
+      // saw. Without this the gate and the capability are still in
+      // place, but the human in the loop is only advisory.
+      experimental_toolApprovalSecret: await this.#approvalSecret(),
+      stopWhen: stepCountIs(16),
+    });
+
+    return result.toUIMessageStreamResponse();
+  }
+
+  /**
+   * The HMAC key for signing approval requests.
+   *
+   * Generated on first use and kept in this DO's own storage rather
+   * than configured as a secret. It never has to leave the object that
+   * both issues and verifies the signature, so there is nothing for an
+   * operator to set up and nothing to leak through a binding.
+   */
+  async #approvalSecret(): Promise<Uint8Array> {
+    const existing = await this.ctx.storage.get<Uint8Array>(APPROVAL_SECRET_KEY);
+    if (existing !== undefined) return existing;
+    const secret = crypto.getRandomValues(new Uint8Array(32));
+    await this.ctx.storage.put(APPROVAL_SECRET_KEY, secret);
+    return secret;
   }
 }
+
+const MODEL_ID = "@cf/zai-org/glm-5.2";
+const APPROVAL_SECRET_KEY = "approval-secret";
 
 // ---------------------------------------------------------------
 // Worker HTTP surface
@@ -163,6 +251,16 @@ export default {
     const execMatch = url.pathname.match(/^\/c\/([^/]+)\/exec\/?$/);
     if (execMatch) return handleExec(request, env, execMatch[1]);
 
+    // The agent's reply is a stream and the audit trail lives on the
+    // object, so both are handled by the DO itself rather than through
+    // an RPC method. Rewritten onto the path the DO's fetch switches
+    // on; the workspace name stays in the id, not the URL.
+    const agentMatch = url.pathname.match(/^\/c\/([^/]+)\/(agent|audit)\/?$/);
+    if (agentMatch) {
+      const stub = env.AgentExample.get(env.AgentExample.idFromName(agentMatch[1]));
+      return stub.fetch(new Request(`http://do/${agentMatch[2]}`, request));
+    }
+
     if (url.pathname === "/" || url.pathname === "") {
       return new Response(
         [
@@ -171,6 +269,11 @@ export default {
           `  PUT  /c/<name>/file/workspace/<path>     write file at ${MOUNT_ROOT}/<path>`,
           `  GET  /c/<name>/file/workspace/<path>     read file at ${MOUNT_ROOT}/<path>`,
           "  POST /c/<name>/exec                      run a shell command (JSON result)",
+          "  POST /c/<name>/agent                     one agent turn (UI message stream)",
+          "  GET  /c/<name>/audit                     what the audit hook recorded",
+          "",
+          `Default exec backend: ${DEFAULT_BACKEND}. Talk to the agent with`,
+          "`npm run chat --workspace @example/computer-agent`.",
           "",
         ].join("\n"),
         { headers: { "content-type": "text/plain" } },
@@ -253,6 +356,13 @@ async function handleExec(request: Request, env: Env, name: string): Promise<Res
   } catch (error) {
     return errorJSON(error, 500);
   }
+}
+
+function json(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "content-type": "application/json" },
+  });
 }
 
 function errorJSON(error: unknown, status: number): Response {
