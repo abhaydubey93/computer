@@ -149,6 +149,10 @@ export interface ModuleExecutionInput {
   env?: Record<string, string>;
   stdin?: Uint8Array | string;
   timeoutMs?: number;
+  // Whether this execution may modify the workspace. Defaults to
+  // true. Intersected with the backend's configured access, so a
+  // backend registered read-only stays read-only.
+  writable?: boolean;
 }
 
 export interface ModuleExecutionEnvelope {
