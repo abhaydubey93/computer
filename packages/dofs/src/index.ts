@@ -41,7 +41,13 @@ export type { SQLiteWorkspaceProviderOptions } from "./provider.js";
 export { SQLiteWorkspaceProvider } from "./provider.js";
 export { initializeSchema, ROOT_INODE, SCHEMA_VERSION } from "./schema/index.js";
 export { Database } from "./storage.js";
-export type { ApplyOptions, ApplyResult, SkippedEntry } from "./sync/apply.js";
+export type {
+  ApplyOptions,
+  ApplyResult,
+  SkippedByMount,
+  SkippedEntry,
+  SkippedWithoutWriteAccess,
+} from "./sync/apply.js";
 // Sync protocol building blocks. The wire wiring lives in
 // @cloudflare/computer-rpc; these are the helpers that wiring binds
 // to a Database.
