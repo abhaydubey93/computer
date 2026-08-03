@@ -16,7 +16,7 @@ import {
   type DurableObjectStorageLike,
   initializeSchema,
   SQLiteWorkspaceProvider,
-  WorkspaceFilesystem,
+  type WorkspaceFilesystem,
 } from "@cloudflare/dofs";
 
 import {
@@ -27,6 +27,8 @@ import {
 } from "./artifacts/index.js";
 import type { AssetsClient } from "./assets/index.js";
 import type { BackendHandle, WorkspaceBackend } from "./backend.js";
+import { noopAudit, openGate, type WorkspaceAudit, type WorkspaceGate } from "./gate.js";
+import { GatedWorkspaceFilesystem } from "./gated-fs.js";
 import type { GitClient, GitClientFactory, GitIdentity } from "./git/index.js";
 import { MountIndex } from "./mounts/index.js";
 import { buildMountRegistry, type MountValue } from "./mounts/registry.js";
@@ -117,6 +119,21 @@ export interface WorkspaceOptions {
   // do not opt in. See `./observe.ts` for the contract and the
   // adapter subpaths for the Cloudflare runtime and OpenTelemetry.
   observer?: WorkspaceObserver;
+
+  // Consulted before each gated action — one call per shell.exec and
+  // one per mutating Workspace.fs call — and able to refuse it or to
+  // withdraw its write access. The default permits everything, so the
+  // package behaves exactly as before for callers who do not opt in.
+  //
+  // This is a separate seam from `observer` on purpose: an observer
+  // must not change what happens, and a gate exists to. See
+  // `./gate.ts`.
+  gate?: WorkspaceGate;
+
+  // Notified after each gated action with what was decided and how it
+  // turned out, including the ones that were refused. Cannot deny
+  // anything; errors it throws are swallowed.
+  audit?: WorkspaceAudit;
 
   // Optional durable retry boundary for failed post-command pulls.
   // The host persists one intent per backend and wakes the Durable
@@ -218,6 +235,8 @@ export class Workspace {
   readonly #defaultBackendId: string | undefined;
   readonly #defaultCommandBackendId: string | undefined;
   readonly #observer: WorkspaceObserver;
+  readonly #gate: WorkspaceGate;
+  readonly #audit: WorkspaceAudit;
   readonly #now: () => number;
   readonly #waitUntil: ((promise: Promise<unknown>) => void) | undefined;
   readonly #retryScheduler: SyncRetryScheduler | undefined;
@@ -299,7 +318,17 @@ export class Workspace {
       : createDisabledArtifactsClient();
     this.#db = new Database(options.storage);
     initializeSchema(this.#db, this.#now);
-    this.#fs = new WorkspaceFilesystem(this.#db, { now: this.#now });
+    this.#gate = options.gate ?? openGate;
+    this.#audit = options.audit ?? noopAudit;
+    // The gated subclass is still a WorkspaceFilesystem, so the mount
+    // index, the think surface, and every caller holding `fs` are
+    // unaffected. With the default open gate the override adds one
+    // comparison per mutation.
+    this.#fs = new GatedWorkspaceFilesystem(this.#db, {
+      now: this.#now,
+      gate: this.#gate,
+      audit: this.#audit,
+    });
     const registered = (options.backends ?? []).slice();
     if (registered.some((backend) => isModuleBackend(backend) && backend.requiresWaitUntil)) {
       if (!options.waitUntil) {
@@ -376,6 +405,17 @@ export class Workspace {
     return this.#observer;
   }
 
+  // Gate and audit hook, exposed for the same reason as the observer:
+  // the shell facade gates its own entry point and needs the pair the
+  // constructor was given rather than a second set of defaults.
+  get gate(): WorkspaceGate {
+    return this.#gate;
+  }
+
+  get audit(): WorkspaceAudit {
+    return this.#audit;
+  }
+
   // Filesystem facade — the documented Workspace.fs surface from
   // docs/04. Available immediately; doesn't need ready() because
   // reads and writes hit the local store, not the wire.
@@ -386,6 +426,12 @@ export class Workspace {
   // wrapper. The same check fires on the apply path used by
   // pullOnce, so container-side writes under a read-only mount are
   // also rejected (and surfaced via Workspace.pull's skipped[]).
+  //
+  // The handle is a GatedWorkspaceFilesystem, so mutations also pass
+  // the configured gate. Mount enforcement and the gate answer
+  // different questions — a mount root is a fixed property of the
+  // workspace, a gate is a decision per action — and both apply.
+  // Neither can be bypassed by going through the other.
   get fs(): WorkspaceFilesystem {
     return this.#fs;
   }
