@@ -114,6 +114,9 @@ jobs:
           - name: container
             workspace: "@example/computer-container"
             path: examples/container
+          - name: agent
+            workspace: "@example/computer-agent"
+            path: examples/agent
     steps:
       - uses: actions/checkout@v6
         with:
@@ -136,8 +139,8 @@ jobs:
       - name: Typecheck
         run: npm run typecheck --workspace ${{ matrix.workspace }} --if-present
 
-      # Examples don't ship tests today; --if-present makes this a
-      # no-op until they do.
+      # Only some examples ship tests; --if-present keeps this a no-op
+      # for the ones that don't.
       - name: Test
         run: npm test --workspace ${{ matrix.workspace }} --if-present
 
