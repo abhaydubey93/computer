@@ -4,6 +4,9 @@
   "private": true,
   "type": "module",
   "description": "Example agent that runs shell commands through @cloudflare/computer, asking for approval only when a command's effect cannot be read off its text and running the rest without write access.",
+  "bin": {
+    "computer-agent-chat": "./cli/chat.mjs"
+  },
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
