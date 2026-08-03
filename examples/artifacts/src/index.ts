@@ -1,7 +1,7 @@
 // Minimal Artifacts example.
 //
 // POST /create { "name": "my-worker" } builds a fresh copy of
-// examples/worker, rewrites its Worker name, publishes it to a new
+// examples/worker-shell, rewrites its Worker name, publishes it to a new
 // Cloudflare Artifacts repo, and returns a read-only clone URL.
 // The Worker owns the endpoint logic. The durable object stays
 // minimal: it constructs the Workspace with `this` so the Worker can
@@ -48,7 +48,7 @@ interface ArtifactCreateOutput {
 
 const WORKSPACE_ROOT = "/workspace";
 const SOURCE_REPO = "https://github.com/cloudflare/computer";
-const EXAMPLE_PATH = "examples/worker";
+const EXAMPLE_PATH = "examples/worker-shell";
 const GIT_REMOTE = "origin";
 const SHARE_TOKEN_TTL = "24h";
 
@@ -87,7 +87,7 @@ export default {
           "  -H 'content-type: application/json' \\",
           '  -d \'{"name":"my-worker"}\'',
           "",
-          "Builds examples/worker in a Workspace and pushes it to a",
+          "Builds examples/worker-shell in a Workspace and pushes it to a",
           "new Cloudflare Artifacts repo.",
         ].join("\n"),
         { headers: { "content-type": "text/plain; charset=utf-8" } },

@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Example Worker that turns examples/worker into a cloneable Cloudflare Artifacts repo through @cloudflare/computer.",
+  "description": "Example Worker that turns examples/worker-shell into a cloneable Cloudflare Artifacts repo through @cloudflare/computer.",
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",

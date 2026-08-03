@@ -35,7 +35,7 @@ The Worker endpoint owns the orchestration. The durable object stays minimal: it
 `POST /create` does the following through `ws.runtime.exec(...)`:
 
 1. clones `https://github.com/cloudflare/computer` into `/workspace/<name>-source`;
-2. copies `/workspace/<name>-source/examples/worker` to `/workspace/<name>`;
+2. copies `/workspace/<name>-source/examples/worker-shell` to `/workspace/<name>`;
 3. rewrites the copied Worker name with `sed`;
 4. initializes and commits the generated project with the shell `git` command;
 5. runs `artifacts create <name> --remote origin --force` — one command that creates the session-scoped Artifact repo, mints a write token, and registers the credentialed remote as `origin`;

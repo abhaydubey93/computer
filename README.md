@@ -59,7 +59,7 @@ To see the pieces working together, start with the examples:
 - [`examples/container`](examples/container) — runs `computerd` inside a
   container, mounts a workspace, and talks to a Durable Object over
   capnweb.
-- [`examples/worker`](examples/worker) — same HTTP surface as the
+- [`examples/worker-shell`](examples/worker-shell) — same HTTP surface as the
   container example, but the shell runs in a Dynamic Worker loaded
   through `env.LOADER`. No container.
 - [`examples/think`](examples/think) — an agent that uses the

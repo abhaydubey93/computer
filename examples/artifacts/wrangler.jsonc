@@ -1,6 +1,6 @@
 {
   // Artifacts example. POST /create { "name": "my-worker" }
-  // generates examples/worker in a Workspace and publishes it to a
+  // generates examples/worker-shell in a Workspace and publishes it to a
   // Cloudflare Artifacts repo.
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "computer-artifacts-example",

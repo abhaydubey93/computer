@@ -173,6 +173,6 @@ file and add it to the list above.
   backed tests only run on Linux and are skipped elsewhere
   automatically.
 - **Examples are real consumers.** `examples/think`,
-  `examples/container`, and `examples/worker` exercise the public
+  `examples/container`, and `examples/worker-shell` exercise the public
   surface. If you change a public API, update them in the same
   change.
