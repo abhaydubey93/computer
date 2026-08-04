@@ -302,6 +302,13 @@ async function handleFile(
   if (request.method === "PUT") {
     const body = new Uint8Array(await request.arrayBuffer());
     try {
+      // Nothing has created /workspace yet on a fresh object. The other
+      // examples get it as a side effect of mounting a bucket
+      // underneath it; this one mounts nothing, so the first write to a
+      // new object would otherwise fail on a missing parent. Both calls
+      // pass the gate and land in the audit trail.
+      const parent = path.slice(0, path.lastIndexOf("/"));
+      if (parent.length > 0) await ws.fs.mkdir(parent, { recursive: true });
       await ws.fs.writeFile(path, body);
       return new Response(null, { status: 204 });
     } catch (error) {
