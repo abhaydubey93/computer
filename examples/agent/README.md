@@ -136,6 +136,18 @@ npm run build                                    # from the repo root
 npm run dev --workspace @example/computer-agent   # needs Docker for the container backend
 ```
 
+`wrangler dev` builds the container image before it will start, so a
+machine that cannot build it gets none of the example, including the
+two backends that never touch a container. There is a second config
+without the container for exactly that case:
+
+```bash
+npm run dev:local --workspace @example/computer-agent
+```
+
+Everything below works the same way under it, except that asking for
+the `container-shell` backend fails: it is not there.
+
 Then, in another terminal, put something in the workspace for the agent
 to look at and start talking to it:
 
