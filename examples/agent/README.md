@@ -107,6 +107,27 @@ layer. A recognized read that turns up wanting write access did not
 come that way, and it is narrowed back to read-only, which costs it
 nothing the matcher says it needed.
 
+## The approval has to survive the trip
+
+The conversation lives in the terminal, not in the Durable Object. An
+answer to an approval therefore arrives as a claim the client makes
+about something you supposedly did, and on that claim rests the write
+access the command is about to get. So the worker signs every approval
+it asks for, with a per-object key it keeps in storage, and the AI SDK
+checks the signature before it will run the tool call. An approval that
+was never issued has nothing to present.
+
+The terminal UI drops the signature. Recording your answer replaces the
+approval rather than adding to it, so what goes back is unsigned and
+the turn dies with `missing signature`. That is true of every published
+`@ai-sdk/tui` through 1.0.52, so the client wraps its transport to
+remember the signatures it saw and put them back:
+[`cli/approval-signatures.mjs`](cli/approval-signatures.mjs). The
+repair belongs in the transport because a signature is not a secret —
+it is a MAC only the worker can produce or check — and carrying one
+across a turn it was always meant to survive gives the client nothing
+it did not already have.
+
 ## Running it
 
 ```bash

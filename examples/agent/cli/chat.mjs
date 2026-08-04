@@ -11,13 +11,16 @@
  * There is deliberately very little here. The AI SDK's terminal UI
  * already knows how to render a pending approval and send the answer
  * back, and the worker speaks the UI message stream that
- * `DefaultChatTransport` posts to, so the whole client is a URL.
+ * `DefaultChatTransport` posts to, so the client is a URL and one
+ * wrapper.
  *
  * The conversation lives in this process rather than on the server,
  * which is why the worker signs its approval requests: an approval
  * comes back as a claim this client makes about something you
  * supposedly did, and the signature is what makes that claim checkable
- * rather than merely plausible.
+ * rather than merely plausible. The wrapper is there because the
+ * terminal UI throws that signature away when it records your answer;
+ * ./approval-signatures.mjs explains what it does about it.
  *
  * The worker has to be running first (`npm run dev`, default
  * http://127.0.0.1:8787). Point somewhere else with --worker or the
@@ -39,6 +42,7 @@
 import { argv, env, exit, stderr } from "node:process";
 import { runAgentTUI } from "@ai-sdk/tui";
 import { DefaultChatTransport } from "ai";
+import { withApprovalSignatures } from "./approval-signatures.mjs";
 
 const { workerUrl, name, title } = parseArgs(argv.slice(2));
 
@@ -55,7 +59,10 @@ const api = new URL(`/c/${encodeURIComponent(name)}/agent`, base).toString();
 stderr.write(`talking to ${api}\n`);
 
 await runAgentTUI({
-  transport: new DefaultChatTransport({ api }),
+  // The wrapper is not decoration: the terminal UI drops the signature
+  // off an approval when it records your answer, and the worker will
+  // not run an unsigned one. See ./approval-signatures.mjs.
+  transport: withApprovalSignatures(new DefaultChatTransport({ api })),
   title: title ?? `computer-agent · ${name}`,
 });
 
