@@ -8,8 +8,15 @@ interface ExecCall {
   writable: boolean | undefined;
 }
 
+interface FakeResult {
+  exitCode: number;
+  stdout: string;
+  stderr: string;
+  skipped?: Array<{ path: string; op: "write" | "delete"; reason: string }>;
+}
+
 function fakeWorkspace(
-  result: { exitCode: number; stdout: string; stderr: string } | Error = {
+  result: FakeResult | Error = {
     exitCode: 0,
     stdout: "",
     stderr: "",
@@ -132,5 +139,99 @@ describe("createExecTool — write access", () => {
 
     expect(output.error).toBe("shell.exec denied: not on the allowlist");
     expect(output.writable).toBe(true);
+  });
+});
+
+describe("createExecTool — refused writes", () => {
+  // A backend that keeps its own copy of the files does not fail the
+  // command when it lacks write access. The command writes, exits 0,
+  // and the changes are refused on the way back. Without this field
+  // the model reads that as a clean success and reports work it did
+  // not do.
+  it("tells the model when the sync refused the command's writes", async () => {
+    const ws = fakeWorkspace({
+      exitCode: 0,
+      stdout: "",
+      stderr: "",
+      skipped: [
+        { path: "/workspace/a.txt", op: "write", reason: "no-write-access" },
+        { path: "/workspace/b.txt", op: "write", reason: "no-write-access" },
+      ],
+    });
+
+    const result = await run(
+      toolFor(ws, () => false),
+      { command: "printf hi > /workspace/a.txt" },
+    );
+
+    expect(result.discardedWrites).toEqual({
+      count: 2,
+      reason: "no-write-access",
+      paths: ["/workspace/a.txt", "/workspace/b.txt"],
+    });
+  });
+
+  it("names the read-only mount case separately, since the fix differs", async () => {
+    const ws = fakeWorkspace({
+      exitCode: 0,
+      stdout: "",
+      stderr: "",
+      skipped: [{ path: "/workspace/ro/a.txt", op: "write", reason: "read-only" }],
+    });
+
+    const result = await run(toolFor(ws), { command: "printf hi > /workspace/ro/a.txt" });
+
+    expect(result.discardedWrites).toMatchObject({ count: 1, reason: "read-only" });
+  });
+
+  it("reports a mixed batch as mixed rather than picking one", async () => {
+    const ws = fakeWorkspace({
+      exitCode: 0,
+      stdout: "",
+      stderr: "",
+      skipped: [
+        { path: "/workspace/a.txt", op: "write", reason: "no-write-access" },
+        { path: "/workspace/ro/b.txt", op: "write", reason: "read-only" },
+      ],
+    });
+
+    const result = await run(toolFor(ws), { command: "sh ./write-both.sh" });
+
+    expect(result.discardedWrites).toMatchObject({ count: 2, reason: "mixed" });
+  });
+
+  // The field is absent rather than empty on the common path: every
+  // key here is context the model pays for on every single call.
+  it("says nothing when the command's writes all landed", async () => {
+    const ws = fakeWorkspace({ exitCode: 0, stdout: "ok", stderr: "", skipped: [] });
+    const result = await run(toolFor(ws), { command: "printf hi > /workspace/a.txt" });
+    expect(result).not.toHaveProperty("discardedWrites");
+  });
+
+  it("says nothing when the backend reports no sync stats at all", async () => {
+    const ws = fakeWorkspace({ exitCode: 0, stdout: "ok", stderr: "" });
+    const result = await run(toolFor(ws), { command: "ls" });
+    expect(result).not.toHaveProperty("discardedWrites");
+  });
+
+  // One refused write per file means a recursive change can produce
+  // thousands. The count stays honest; the list is a sample.
+  it("caps the path list but keeps the true count", async () => {
+    const skipped = Array.from({ length: 25 }, (_, i) => ({
+      path: `/workspace/f${i}.txt`,
+      op: "write" as const,
+      reason: "no-write-access" as const,
+    }));
+    const ws = fakeWorkspace({ exitCode: 0, stdout: "", stderr: "", skipped });
+
+    const result = await run(
+      toolFor(ws, () => false),
+      { command: "sh ./many.sh" },
+    );
+
+    const discarded = result.discardedWrites as { count: number; paths: string[] };
+    expect(discarded.count).toBe(25);
+    expect(discarded.paths).toHaveLength(10);
+    expect(discarded.paths[0]).toBe("/workspace/f0.txt");
   });
 });

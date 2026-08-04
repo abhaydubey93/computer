@@ -11,8 +11,49 @@ export interface ExecWorkspaceLike {
         exitCode: number;
         stdout: string;
         stderr: string;
+        // Changes the post-command pull refused. Optional because a
+        // backend that shares the workspace store never produces any:
+        // its writes fail where they happen, so there is nothing left
+        // to refuse on the way back.
+        skipped?: ReadonlyArray<{ path: string; op: "write" | "delete"; reason: string }>;
       }>;
     }>;
+  };
+}
+
+// Refused writes reported back to the model.
+//
+// A backend that keeps its own copy of the files cannot be stopped
+// from writing when it has no write access. It writes, exits zero,
+// and the changes are dropped when they are pulled back. Nothing in
+// the exit code or the output says so, so a model that is not told
+// reports work it did not do.
+//
+// `count` is every refused entry; `paths` is a capped sample, because
+// one entry per file means a recursive change can produce thousands
+// and the model is paying for each one.
+export interface DiscardedWrites {
+  count: number;
+  // "no-write-access" — the command ran without the capability.
+  // "read-only"       — it reached into a read-only mount root.
+  // Different fixes, so they are not collapsed into one word.
+  reason: "no-write-access" | "read-only" | "mixed";
+  paths: string[];
+}
+
+const MAX_REPORTED_PATHS = 10;
+
+function summarizeSkipped(
+  skipped: ReadonlyArray<{ path: string; reason: string }> | undefined,
+): DiscardedWrites | undefined {
+  if (skipped === undefined || skipped.length === 0) return undefined;
+  const reasons = new Set(skipped.map((entry) => entry.reason));
+  const reason =
+    reasons.size === 1 ? (skipped[0].reason as DiscardedWrites["reason"]) : ("mixed" as const);
+  return {
+    count: skipped.length,
+    reason,
+    paths: skipped.slice(0, MAX_REPORTED_PATHS).map((entry) => entry.path),
   };
 }
 
@@ -108,6 +149,7 @@ export function createExecTool(
           writable,
         });
         const result = await handle.result();
+        const discardedWrites = summarizeSkipped(result.skipped);
         return {
           command,
           cwd: cwd ?? null,
@@ -120,6 +162,10 @@ export function createExecTool(
           exitCode: result.exitCode,
           stdout: truncate(result.stdout, maxBytes),
           stderr: truncate(result.stderr, maxBytes),
+          // Spread so the key is absent rather than null on the
+          // common path. Every key here is context the model reads on
+          // every call, and "nothing was refused" is the usual case.
+          ...(discardedWrites !== undefined ? { discardedWrites } : {}),
         };
       } catch (err) {
         // A gate refusing the command arrives here. It is returned as
